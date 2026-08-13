@@ -35,7 +35,9 @@ regexes = [
 description = "Deliberate non-secrets"
 regexes = [
   '''LocalOnly-ChangeMe-1234!''',
-  '''DEV-ONLY-PLACEHOLDER-override-in-production-see-README''',
+  # Base64 of a sentence saying it is not a secret. Umbraco requires valid Base64 here,
+  # so the placeholder cannot simply be readable text.
+  '''REVWIE9OTFkgcGxhY2Vob2xkZXIuIE5vdCBhIHNlY3JldC4gT3ZlcnJpZGUgVW1icmFjbzpDTVM6SW1hZ2luZzpITUFDU2VjcmV0S2V5IGluIHByb2R1Y3Rpb24u''',
 ]
 paths = [
   '''tests/BaryoDev\.Umbraco\.Pwa\.Tests/.*''',
