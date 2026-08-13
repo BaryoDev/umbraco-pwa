@@ -1,0 +1,99 @@
+name: Publish to NuGet
+
+# Version comes from <VersionPrefix> in Directory.Build.props, never from a
+# hand-typed input, so the published version is always recorded in git.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and pack without publishing"
+        type: boolean
+        default: true
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Lets the runner mint the OIDC token nuget.org exchanges for a
+      # short-lived API key. No long-lived secret is involved.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          # Both, because the package multi-targets: Umbraco 16 is .NET 9, 17 and 18 are .NET 10.
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Read version from source
+        id: version
+        run: |
+          VERSION=$(grep -oP '(?<=<VersionPrefix>)[^<]+' Directory.Build.props)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Version from Directory.Build.props: $VERSION"
+
+      - name: Confirm tag matches the version in source
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if [ "$TAG" != "v$VERSION" ]; then
+            echo "Tag $TAG does not match VersionPrefix $VERSION" >&2
+            exit 1
+          fi
+
+      - run: dotnet restore src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj
+
+      - run: dotnet build src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj --configuration Release --no-restore
+
+      # A package must never ship without its tests having run.
+      - name: Test
+        run: dotnet test tests/BaryoDev.Umbraco.Pwa.Tests --configuration Release --verbosity normal
+
+      - name: Pack
+        run: dotnet pack src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj --configuration Release --no-build --output ./nupkgs
+
+      - name: List artifacts
+        run: ls -la ./nupkgs
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkgs
+          path: ./nupkgs/*
+
+      # Requested here rather than earlier because the key expires after an
+      # hour and each OIDC token buys exactly one key.
+      # Runs on dry runs too, so a dry run actually verifies the trusted
+      # publishing policy. Obtaining a key publishes nothing.
+      - name: Exchange OIDC token for a short-lived NuGet key
+        id: nuget_login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER || 'arnelirobles' }}
+
+      - name: Confirm the key was issued
+        run: |
+          if [ -z "${{ steps.nuget_login.outputs.NUGET_API_KEY }}" ]; then
+            echo "::error::No API key returned. Check the trusted publishing policy on nuget.org." && exit 1
+          fi
+          echo "Trusted publishing OK: short-lived key issued."
+
+      - name: Publish
+        if: ${{ !inputs.dry_run }}
+        run: |
+          dotnet nuget push ./nupkgs/*.nupkg \
+            --api-key "${{ steps.nuget_login.outputs.NUGET_API_KEY }}" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
