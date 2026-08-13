@@ -10,6 +10,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Runs first and on every push. A committed credential is not something to discover later:
+  # anything that reaches a public repo has to be treated as disclosed, not merely removed.
+  secrets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # scan history, not just the tip
+
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
   # The package multi-targets, so this proves both halves compile and that the packed nuspec still
   # satisfies what the Umbraco Marketplace requires to list it.
   pack:
