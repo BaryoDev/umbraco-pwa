@@ -1,7 +1,15 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <!-- Umbraco 16 runs on .NET 9; 17 and 18 run on .NET 10. Supporting all three means two
+         targets, not one version range.
+
+         15 is deliberately excluded. It is the last major with the synchronous MigrationBase,
+         which 16 replaced with AsyncMigrationBase, and that break lands between 15 and 16 while
+         the runtime break lands between 16 and 17. The two do not align, so one assembly cannot
+         span both. 15 is also standard-term support and past its one-year window, whereas 17 is
+         the current LTS and supported into late 2027. -->
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -26,11 +34,15 @@
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!-- Brings Core, Infrastructure and the backoffice API surface transitively. The range is
-         deliberately open-ended to the next major: the marketplace reads it to decide which
-         Umbraco versions this package advertises support for. -->
-    <PackageReference Include="Umbraco.Cms.Api.Management" Version="[18.0.0, 19.0.0)" />
+  <!-- Brings Core, Infrastructure and the backoffice API surface transitively. The marketplace
+       reads these ranges to decide which Umbraco versions the listing advertises, so between the
+       two targets they need to cover every major that is actually supported. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+    <PackageReference Include="Umbraco.Cms.Api.Management" Version="[16.0.0, 17.0.0)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Umbraco.Cms.Api.Management" Version="[17.0.0, 19.0.0)" />
   </ItemGroup>
 
   <ItemGroup>

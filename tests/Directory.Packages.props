@@ -1,0 +1,39 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageFloatingVersionsEnabled>true</CentralPackageFloatingVersionsEnabled>
+    <!--
+      Default must match UmbracoAppLocalIcuVersion in TestSite.csproj. Defined here too because this file
+      is imported before the main project's own PropertyGroup runs, so under CPM the PackageVersion below needs
+      its own fallback to stay in sync with the RuntimeHostConfigurationOption value set from the same property.
+    -->
+    <UmbracoAppLocalIcuVersion Condition="'$(UmbracoAppLocalIcuVersion)' == ''">72.1.0.3</UmbracoAppLocalIcuVersion>
+
+    <!-- CI overrides this to run the whole suite against each supported major:
+           dotnet test -p:UmbracoVersion=16.5.1 -->
+    <UmbracoVersion Condition="'$(UmbracoVersion)' == ''">18.1.0</UmbracoVersion>
+    <!-- Computed once. MSBuild cannot parse the nested quotes of a .Split('.') call inside a
+         Condition attribute, so the major has to be a property before it can be compared. -->
+    <UmbracoMajor>$(UmbracoVersion.Split('.')[0])</UmbracoMajor>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Umbraco.Cms" Version="$(UmbracoVersion)" />
+    <PackageVersion Include="Umbraco.Cms.DevelopmentMode.Backoffice" Version="$(UmbracoVersion)"
+                    Condition="'$(UmbracoMajor)' != '16'" />
+    <PackageVersion Include="Microsoft.ICU.ICU4C.Runtime" Version="$(UmbracoAppLocalIcuVersion)" />
+    <!-- Follows the runtime, not the Umbraco version: Umbraco 16 is .NET 9, and the 10.x test
+         host does not load there. -->
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.19"
+                    Condition="'$(UmbracoMajor)' == '16'" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.11"
+                    Condition="'$(UmbracoMajor)' != '16'" />
+
+    <!-- The test project's packages. Under central management these live here rather than in
+         the csproj, so both test projects agree on versions. -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="coverlet.collector" Version="6.0.4" />
+    <PackageVersion Include="Shouldly" Version="4.3.0" />
+  </ItemGroup>
+</Project>

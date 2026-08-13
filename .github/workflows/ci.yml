@@ -10,7 +10,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  # The package multi-targets, so this proves both halves compile and that the packed nuspec still
+  # satisfies what the Umbraco Marketplace requires to list it.
+  pack:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,22 +20,16 @@ jobs:
 
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: |
+            9.0.x
+            10.0.x
 
-      - run: dotnet restore
+      - run: dotnet build src/BaryoDev.Umbraco.Pwa -c Release
 
-      - run: dotnet build --no-restore -c Release
+      - run: dotnet pack src/BaryoDev.Umbraco.Pwa -c Release --no-build -o artifacts
 
-      # Boots a real Umbraco on SQLite. The migration, the DI registrations and the routes are
-      # only exercised by a real boot, so a mocked host would pass with all three broken.
-      - name: Test
-        run: dotnet test --no-build -c Release --verbosity normal
-
-      - name: Pack
-        run: dotnet pack src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj -c Release --no-build -o artifacts
-
-      # The marketplace lists a package on two conditions. Neither fails the build if broken, and
-      # both are invisible until the listing silently does not appear.
+      # Neither condition fails a build when broken, and both are invisible until the listing
+      # silently does not appear on the marketplace.
       - name: Verify marketplace requirements
         run: |
           cd artifacts
@@ -41,8 +37,56 @@ jobs:
           grep -q 'umbraco-marketplace' spec.xml || { echo "missing umbraco-marketplace tag"; exit 1; }
           grep -q 'id="Umbraco.Cms' spec.xml       || { echo "missing direct Umbraco.Cms dependency"; exit 1; }
           echo "tag and Umbraco.Cms dependency both present"
+          echo "--- advertised compatibility ---"
+          grep -o 'id="Umbraco.Cms.Api.Management" version="[^"]*"' spec.xml
+
+      - name: Both target frameworks shipped
+        run: |
+          cd artifacts
+          unzip -l *.nupkg | grep -q 'lib/net9.0/'  || { echo "net9.0 missing (Umbraco 16)"; exit 1; }
+          unzip -l *.nupkg | grep -q 'lib/net10.0/' || { echo "net10.0 missing (Umbraco 17, 18)"; exit 1; }
+          echo "net9.0 and net10.0 both present"
 
       - uses: actions/upload-artifact@v4
         with:
           name: nupkg
           path: artifacts/*.nupkg
+
+  # Every supported major, each booting a real Umbraco on SQLite. A version range in the csproj is
+  # a claim; this is the evidence for it.
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - umbraco: "16.5.1"
+            framework: net9.0
+            note: "standard-term support"
+          - umbraco: "17.6.1"
+            framework: net10.0
+            note: "current LTS"
+          - umbraco: "18.1.0"
+            framework: net10.0
+            note: "latest"
+
+    name: Umbraco ${{ matrix.umbraco }} (${{ matrix.framework }}, ${{ matrix.note }})
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      # TargetFrameworks pins the referenced package to the single target this Umbraco can use,
+      # so the .NET 9 leg never tries to build the net10.0 half.
+      - name: Test
+        run: >
+          dotnet test tests/BaryoDev.Umbraco.Pwa.Tests
+          -p:UmbracoVersion=${{ matrix.umbraco }}
+          -p:TargetFrameworks=${{ matrix.framework }}
+          --verbosity normal
