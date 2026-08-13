@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Maps wwwroot/ onto App_Plugins/BaryoDev.Pwa so the backoffice can find the manifest. -->
+    <StaticWebAssetBasePath>App_Plugins/BaryoDev.Pwa</StaticWebAssetBasePath>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>BaryoDev.Umbraco.Pwa</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>BaryoDev</Authors>
+    <Title>PWA for Umbraco</Title>
+    <Description>Turn an Umbraco site into an installable, offline-capable app, and see who installed it from the backoffice. Install prompt for Android and iOS, a network-first service worker, and install tracking that stays in your own database rather than a third-party dashboard.</Description>
+    <PackageTags>umbraco;umbraco-marketplace;pwa;progressive-web-app;service-worker;offline;install</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageProjectUrl>https://github.com/BaryoDev/umbraco-pwa</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/BaryoDev/umbraco-pwa</RepositoryUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Brings Core, Infrastructure and the backoffice API surface transitively. The range is
+         deliberately open-ended to the next major: the marketplace reads it to decide which
+         Umbraco versions this package advertises support for. -->
+    <PackageReference Include="Umbraco.Cms.Api.Management" Version="[18.0.0, 19.0.0)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+</Project>

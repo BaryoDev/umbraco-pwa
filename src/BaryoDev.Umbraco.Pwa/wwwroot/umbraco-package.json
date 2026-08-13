@@ -1,0 +1,24 @@
+{
+  "$schema": "../../umbraco-package-schema.json",
+  "name": "BaryoDev.Pwa",
+  "version": "0.1.0",
+  "extensions": [
+    {
+      "type": "dashboard",
+      "alias": "BaryoDev.Pwa.Dashboard",
+      "name": "PWA installs",
+      "element": "/App_Plugins/BaryoDev.Pwa/dashboard.js",
+      "weight": 10,
+      "meta": {
+        "label": "PWA",
+        "pathname": "pwa"
+      },
+      "conditions": [
+        {
+          "alias": "Umb.Condition.SectionAlias",
+          "match": "Umb.Section.Settings"
+        }
+      ]
+    }
+  ]
+}
