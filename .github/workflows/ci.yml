@@ -20,10 +20,17 @@ jobs:
         with:
           fetch-depth: 0  # scan history, not just the tip
 
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_CONFIG: .gitleaks.toml
+      # The gitleaks binary is MIT licensed and free. Their GitHub Action is not: it refuses to
+      # run for an organization without a paid licence key. Same scanner, same config, no licence.
+      - name: Install gitleaks
+        run: |
+          VERSION=8.28.0
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Scan
+        run: gitleaks detect --source . --config .gitleaks.toml --redact --verbose
 
   # The package multi-targets, so this proves both halves compile and that the packed nuspec still
   # satisfies what the Umbraco Marketplace requires to list it.
