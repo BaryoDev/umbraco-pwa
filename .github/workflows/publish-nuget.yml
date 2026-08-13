@@ -39,9 +39,11 @@ jobs:
       - name: Read version from source
         id: version
         run: |
-          VERSION=$(grep -oP '(?<=<VersionPrefix>)[^<]+' Directory.Build.props)
+          # This repo has no Directory.Build.props; the version lives on the package project.
+          VERSION=$(grep -oP '(?<=<Version>)[^<]+' src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj)
+          test -n "$VERSION" || { echo "::error::No <Version> found in the csproj"; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Version from Directory.Build.props: $VERSION"
+          echo "Version from the csproj: $VERSION"
 
       - name: Confirm tag matches the version in source
         if: startsWith(github.ref, 'refs/tags/v')
