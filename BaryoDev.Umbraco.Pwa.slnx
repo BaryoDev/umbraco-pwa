@@ -3,6 +3,7 @@
     <Project Path="src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/BaryoDev.Umbraco.Pwa.ApiApproval.Tests/BaryoDev.Umbraco.Pwa.ApiApproval.Tests.csproj" />
     <Project Path="tests/BaryoDev.Umbraco.Pwa.Tests/BaryoDev.Umbraco.Pwa.Tests.csproj" />
     <Project Path="tests/TestSite/TestSite.csproj" />
   </Folder>

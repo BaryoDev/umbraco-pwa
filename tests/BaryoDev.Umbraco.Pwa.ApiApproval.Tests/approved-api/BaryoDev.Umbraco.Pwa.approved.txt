@@ -1,0 +1,169 @@
+namespace BaryoDev.Umbraco.Pwa.Controllers
+{
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+    [Microsoft.AspNetCore.Mvc.ApiController]
+    public class PwaAssetsController : Microsoft.AspNetCore.Mvc.ControllerBase
+    {
+        public PwaAssetsController(Microsoft.Extensions.Options.IOptionsMonitor<BaryoDev.Umbraco.Pwa.PwaOptions> options, BaryoDev.Umbraco.Pwa.Services.IPwaAssetGenerator generator) { }
+        [Microsoft.AspNetCore.Mvc.HttpGet("/baryodev-pwa.js")]
+        public Microsoft.AspNetCore.Mvc.IActionResult Client() { }
+        [Microsoft.AspNetCore.Mvc.HttpGet("/manifest.webmanifest")]
+        [Microsoft.AspNetCore.Mvc.Produces("application/manifest+json", new string[0])]
+        public Microsoft.AspNetCore.Mvc.IActionResult Manifest() { }
+        [Microsoft.AspNetCore.Mvc.HttpGet("/sw.js")]
+        public Microsoft.AspNetCore.Mvc.IActionResult ServiceWorker() { }
+    }
+    [Asp.Versioning.ApiVersion("1.0")]
+    [Microsoft.AspNetCore.Authorization.Authorize(Policy="SectionAccessSettings")]
+    [Microsoft.AspNetCore.Mvc.ApiExplorerSettings(GroupName="PWA")]
+    [Umbraco.Cms.Api.Management.Routing.VersionedApiBackOfficeRoute("baryodev/pwa")]
+    public class PwaInstallsController : Umbraco.Cms.Api.Management.Controllers.ManagementApiControllerBase
+    {
+        public PwaInstallsController(BaryoDev.Umbraco.Pwa.Services.IPwaInstallService installs, BaryoDev.Umbraco.Pwa.Services.IPwaReadinessService readiness) { }
+        [Asp.Versioning.MapToApiVersion("1.0")]
+        [Microsoft.AspNetCore.Mvc.HttpGet("installs")]
+        [Microsoft.AspNetCore.Mvc.ProducesResponseType(typeof(System.Collections.Generic.IEnumerable<BaryoDev.Umbraco.Pwa.Models.PwaInstallModel>), 200)]
+        public System.Threading.Tasks.Task<Microsoft.AspNetCore.Mvc.IActionResult> Installs([Microsoft.AspNetCore.Mvc.FromQuery] bool installedOnly = false, System.Threading.CancellationToken cancellationToken = default) { }
+        [Asp.Versioning.MapToApiVersion("1.0")]
+        [Microsoft.AspNetCore.Mvc.HttpGet("readiness")]
+        [Microsoft.AspNetCore.Mvc.ProducesResponseType(typeof(BaryoDev.Umbraco.Pwa.Models.PwaReadiness), 200)]
+        public System.Threading.Tasks.Task<Microsoft.AspNetCore.Mvc.IActionResult> Readiness(System.Threading.CancellationToken cancellationToken) { }
+        [Asp.Versioning.MapToApiVersion("1.0")]
+        [Microsoft.AspNetCore.Mvc.HttpGet("summary")]
+        [Microsoft.AspNetCore.Mvc.ProducesResponseType(typeof(BaryoDev.Umbraco.Pwa.Models.PwaInstallSummary), 200)]
+        public System.Threading.Tasks.Task<Microsoft.AspNetCore.Mvc.IActionResult> Summary(System.Threading.CancellationToken cancellationToken) { }
+    }
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+    [Microsoft.AspNetCore.Mvc.ApiController]
+    [Microsoft.AspNetCore.Mvc.Route("umbraco/pwa/api")]
+    public class PwaReportController : Microsoft.AspNetCore.Mvc.ControllerBase
+    {
+        public PwaReportController(BaryoDev.Umbraco.Pwa.Services.IPwaInstallService installs) { }
+        [Microsoft.AspNetCore.Mvc.HttpPost("report")]
+        [Microsoft.AspNetCore.Mvc.ProducesResponseType(202)]
+        public System.Threading.Tasks.Task<Microsoft.AspNetCore.Mvc.IActionResult> Report([Microsoft.AspNetCore.Mvc.FromBody] BaryoDev.Umbraco.Pwa.Models.PwaReportRequest report, System.Threading.CancellationToken cancellationToken) { }
+    }
+}
+namespace BaryoDev.Umbraco.Pwa.Models
+{
+    public class PwaCheck
+    {
+        public PwaCheck() { }
+        public bool Advisory { get; set; }
+        public string Detail { get; set; }
+        public string Name { get; set; }
+        public bool Passed { get; set; }
+    }
+    public class PwaInstallModel
+    {
+        public PwaInstallModel() { }
+        public string DeviceId { get; set; }
+        public string DisplayMode { get; set; }
+        public System.DateTime FirstSeenAt { get; set; }
+        public bool Installed { get; set; }
+        public System.DateTime? InstalledAt { get; set; }
+        public System.DateTime LastSeenAt { get; set; }
+        public int LaunchCount { get; set; }
+        public string? Platform { get; set; }
+    }
+    public class PwaInstallSummary
+    {
+        public PwaInstallSummary() { }
+        public int ActiveLast30Days { get; set; }
+        public System.Collections.Generic.Dictionary<string, int> ByPlatform { get; set; }
+        public int Installed { get; set; }
+        public int TotalDevices { get; set; }
+    }
+    public class PwaReadiness
+    {
+        public PwaReadiness() { }
+        public System.Collections.Generic.List<BaryoDev.Umbraco.Pwa.Models.PwaCheck> Checks { get; set; }
+        public bool Installable { get; set; }
+    }
+    public class PwaReportRequest
+    {
+        public PwaReportRequest() { }
+        public string DeviceId { get; set; }
+        public string DisplayMode { get; set; }
+        public bool Installed { get; set; }
+        public string? Platform { get; set; }
+    }
+}
+namespace BaryoDev.Umbraco.Pwa
+{
+    public class PwaComposer : Umbraco.Cms.Core.Composing.IComposer, Umbraco.Cms.Core.Composing.IDiscoverable
+    {
+        public PwaComposer() { }
+        public void Compose(Umbraco.Cms.Core.DependencyInjection.IUmbracoBuilder builder) { }
+    }
+    public class PwaIcon
+    {
+        public PwaIcon() { }
+        public string? Purpose { get; set; }
+        public string Sizes { get; set; }
+        public string Src { get; set; }
+        public string Type { get; set; }
+    }
+    public class PwaInstallPromptOptions
+    {
+        public PwaInstallPromptOptions() { }
+        public string? AccentColor { get; set; }
+        public string? AppName { get; set; }
+        public string Description { get; set; }
+        public bool Enabled { get; set; }
+        public System.Collections.Generic.List<string> HideOnPaths { get; set; }
+        public string? IconUrl { get; set; }
+    }
+    public class PwaManifestOptions
+    {
+        public PwaManifestOptions() { }
+        public string BackgroundColor { get; set; }
+        public string? Description { get; set; }
+        public string Display { get; set; }
+        public System.Collections.Generic.List<BaryoDev.Umbraco.Pwa.PwaIcon> Icons { get; set; }
+        public string? Name { get; set; }
+        public string? ShortName { get; set; }
+        public string StartUrl { get; set; }
+        public string ThemeColor { get; set; }
+    }
+    public class PwaOptions
+    {
+        public const string SectionName = "BaryoDev:Pwa";
+        public PwaOptions() { }
+        public BaryoDev.Umbraco.Pwa.PwaInstallPromptOptions InstallPrompt { get; set; }
+        public BaryoDev.Umbraco.Pwa.PwaManifestOptions Manifest { get; set; }
+        public int RetentionDays { get; set; }
+        public bool ServeAssets { get; set; }
+        public BaryoDev.Umbraco.Pwa.PwaServiceWorkerOptions ServiceWorker { get; set; }
+        public bool TrackInstalledOnly { get; set; }
+        public bool TrackInstalls { get; set; }
+    }
+    public class PwaServiceWorkerOptions
+    {
+        public PwaServiceWorkerOptions() { }
+        public string ApiPrefix { get; set; }
+        public string CachePrefix { get; set; }
+        public string NavigationFallback { get; set; }
+        public System.Collections.Generic.List<string> SkipPaths { get; set; }
+        public string? Version { get; set; }
+    }
+}
+namespace BaryoDev.Umbraco.Pwa.Services
+{
+    public interface IPwaAssetGenerator
+    {
+        string Client();
+        string Manifest();
+        string ServiceWorker();
+    }
+    public interface IPwaInstallService
+    {
+        System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<BaryoDev.Umbraco.Pwa.Models.PwaInstallModel>> GetAllAsync(bool installedOnly, System.Threading.CancellationToken ct = default);
+        System.Threading.Tasks.Task<BaryoDev.Umbraco.Pwa.Models.PwaInstallSummary> GetSummaryAsync(System.Threading.CancellationToken ct = default);
+        System.Threading.Tasks.Task ReportAsync(BaryoDev.Umbraco.Pwa.Models.PwaReportRequest report, System.Threading.CancellationToken ct = default);
+    }
+    public interface IPwaReadinessService
+    {
+        System.Threading.Tasks.Task<BaryoDev.Umbraco.Pwa.Models.PwaReadiness> CheckAsync(Microsoft.AspNetCore.Http.HttpRequest request, System.Threading.CancellationToken ct = default);
+    }
+}

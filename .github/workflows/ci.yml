@@ -69,6 +69,11 @@ jobs:
           unzip -l *.nupkg | grep -q 'lib/net10.0/' || { echo "net10.0 missing (Umbraco 17, 18)"; exit 1; }
           echo "net9.0 and net10.0 both present"
 
+      # The public surface is a contract: other people's sites compile against it. A rename or a
+      # signature change breaks them while every behavioural test still passes.
+      - name: Public API has not changed
+        run: dotnet test tests/BaryoDev.Umbraco.Pwa.ApiApproval.Tests --verbosity normal
+
       - uses: actions/upload-artifact@v4
         with:
           name: nupkg
