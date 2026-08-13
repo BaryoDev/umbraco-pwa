@@ -82,11 +82,32 @@ jobs:
             9.0.x
             10.0.x
 
-      # TargetFrameworks pins the referenced package to the single target this Umbraco can use,
-      # so the .NET 9 leg never tries to build the net10.0 half.
+      # No TargetFrameworks override here. Passing it turns the single-targeted test project into
+      # a multi-targeting one, and `dotnet test` then silently discovers nothing. The test project
+      # already derives its own TargetFramework from UmbracoVersion, and a ProjectReference picks
+      # the matching asset out of the multi-targeted package on its own.
       - name: Test
         run: >
           dotnet test tests/BaryoDev.Umbraco.Pwa.Tests
           -p:UmbracoVersion=${{ matrix.umbraco }}
-          -p:TargetFrameworks=${{ matrix.framework }}
+          --logger "trx;LogFileName=results.trx"
+          --results-directory ${{ github.workspace }}/testresults
           --verbosity normal
+
+      # A run that discovers no tests exits zero. Without this the whole matrix can go green
+      # while proving nothing, which is exactly what happened the first time it was written.
+      - name: Assert the tests actually ran
+        run: |
+          TRX=$(find "${{ github.workspace }}/testresults" -name 'results.trx' | head -1)
+          test -n "$TRX" || { echo "no trx produced: nothing ran"; exit 1; }
+          TOTAL=$(grep -o 'total="[0-9]*"' "$TRX" | head -1 | grep -o '[0-9]*')
+          PASSED=$(grep -o 'passed="[0-9]*"' "$TRX" | head -1 | grep -o '[0-9]*')
+          echo "total=$TOTAL passed=$PASSED"
+          test "${TOTAL:-0}" -ge 50 || { echo "expected at least 50 tests, got ${TOTAL:-0}"; exit 1; }
+          test "$TOTAL" = "$PASSED" || { echo "not every test passed"; exit 1; }
+
+      - name: Verify the framework under test
+        run: |
+          test -d tests/BaryoDev.Umbraco.Pwa.Tests/bin/Debug/${{ matrix.framework }} \
+            || { echo "expected ${{ matrix.framework }} output for Umbraco ${{ matrix.umbraco }}"; exit 1; }
+          echo "ran on ${{ matrix.framework }} as intended"
