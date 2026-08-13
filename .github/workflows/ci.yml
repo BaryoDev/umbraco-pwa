@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - run: dotnet restore
+
+      - run: dotnet build --no-restore -c Release
+
+      # Boots a real Umbraco on SQLite. The migration, the DI registrations and the routes are
+      # only exercised by a real boot, so a mocked host would pass with all three broken.
+      - name: Test
+        run: dotnet test --no-build -c Release --verbosity normal
+
+      - name: Pack
+        run: dotnet pack src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj -c Release --no-build -o artifacts
+
+      # The marketplace lists a package on two conditions. Neither fails the build if broken, and
+      # both are invisible until the listing silently does not appear.
+      - name: Verify marketplace requirements
+        run: |
+          cd artifacts
+          unzip -p *.nupkg '*.nuspec' > spec.xml
+          grep -q 'umbraco-marketplace' spec.xml || { echo "missing umbraco-marketplace tag"; exit 1; }
+          grep -q 'id="Umbraco.Cms' spec.xml       || { echo "missing direct Umbraco.Cms dependency"; exit 1; }
+          echo "tag and Umbraco.Cms dependency both present"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: artifacts/*.nupkg

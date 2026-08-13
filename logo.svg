@@ -1,0 +1,16 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="pwa-kit">
+  <defs>
+    <linearGradient id="pk-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3b82f6"/>
+      <stop offset="1" stop-color="#4f46e5"/>
+    </linearGradient>
+  </defs>
+  <!-- app tile -->
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="url(#pk-g)"/>
+  <!-- install: arrow into the home-screen dock -->
+  <g fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M64 34 V72"/>
+    <path d="M46 56 L64 74 L82 56"/>
+    <path d="M42 92 H86"/>
+  </g>
+</svg>

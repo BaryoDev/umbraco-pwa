@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PWA for Umbraco</title>
+
+<!-- The two lines a site owner adds. Everything else is served by the package. -->
+<link rel="manifest" href="/manifest.webmanifest" />
+<script src="/baryodev-pwa.js" defer></script>
+
+<style>
+  :root {
+    --ground: #faf9fb; --surface: #fff; --ink: #1b1721; --soft: #453d50;
+    --muted: #6e6579; --rule: #e2dee8; --accent: #6b2d5c; --ok: #245c50;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #15121a; --surface: #1e1a25; --ink: #efecf3; --soft: #c8c1d2;
+      --muted: #948ba1; --rule: #322b3c; --accent: #d69ac6; --ok: #74c4ae;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 0 20px 120px; background: var(--ground); color: var(--ink);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; }
+  header { padding-top: 64px; display: flex; flex-direction: column; gap: 12px; }
+  h1 { margin: 0; font-size: clamp(28px, 6vw, 40px); letter-spacing: -.025em; line-height: 1.08; }
+  .lede { margin: 0; font-size: 18px; color: var(--soft); max-width: 56ch; }
+  .eyebrow {
+    margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .13em;
+    text-transform: uppercase; color: var(--accent);
+  }
+  h2 { font-size: 18px; margin: 0 0 12px; letter-spacing: -.01em; }
+  .card {
+    background: var(--surface); border: 1px solid var(--rule);
+    border-radius: 8px; padding: 20px 22px;
+  }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; align-items: baseline; }
+  dt { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  dd { margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; }
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 4px; font-size: 11px;
+    font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  }
+  .yes { background: color-mix(in srgb, var(--ok) 15%, transparent); color: var(--ok); }
+  .no  { background: color-mix(in srgb, var(--muted) 15%, transparent); color: var(--muted); }
+  pre {
+    margin: 0; padding: 14px 16px; overflow-x: auto; border-radius: 6px;
+    background: color-mix(in srgb, var(--ink) 6%, transparent);
+    border: 1px solid var(--rule);
+    font: 13px/1.55 ui-monospace, Menlo, Consolas, monospace; color: var(--soft);
+  }
+  ol { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 8px; color: var(--soft); }
+  footer { color: var(--muted); font-size: 14px; border-top: 1px solid var(--rule); padding-top: 20px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <p class="eyebrow">BaryoDev.Umbraco.Pwa</p>
+    <h1>This Umbraco site is an app</h1>
+    <p class="lede">
+      Installable, works offline, and reports its own adoption to the backoffice rather than to
+      anyone else's dashboard. Two lines in the layout, no build step, no account.
+    </p>
+  </header>
+
+  <section class="card">
+    <h2>What this browser is telling the server</h2>
+    <dl id="status">
+      <dt>Display mode</dt><dd id="mode">checking…</dd>
+      <dt>Installed</dt><dd id="installed">checking…</dd>
+      <dt>Platform</dt><dd id="platform">checking…</dd>
+      <dt>Service worker</dt><dd id="sw">checking…</dd>
+      <dt>Device id</dt><dd id="device">checking…</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Try it</h2>
+    <ol>
+      <li><strong>Android or desktop Chrome:</strong> an install banner appears at the bottom. Accept it and this panel flips to standalone.</li>
+      <li><strong>iPhone or iPad:</strong> the banner tells you to tap Share, then Add to Home Screen, because iOS offers no install API.</li>
+      <li><strong>Offline:</strong> load the page once, turn off the network, reload. The service worker serves it from cache.</li>
+      <li><strong>Then look in the backoffice:</strong> Settings, then the PWA dashboard, and your visit is counted.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>The whole integration</h2>
+    <pre><code>&lt;link rel="manifest" href="/manifest.webmanifest" /&gt;
+&lt;script src="/baryodev-pwa.js" defer&gt;&lt;/script&gt;</code></pre>
+  </section>
+
+  <footer>
+    <p>
+      No IP address, no user agent string, no visitor identity is stored.
+      <a href="/umbraco/">Backoffice</a>
+    </p>
+  </footer>
+
+</div>
+
+<script>
+  // Reads the same signals the package's client reads, so the panel shows what was reported
+  // rather than a separate guess.
+  function displayMode() {
+    for (const m of ["fullscreen", "standalone", "minimal-ui"]) {
+      if (window.matchMedia?.(`(display-mode: ${m})`).matches) return m;
+    }
+    return navigator.standalone ? "standalone" : "browser";
+  }
+  function platform() {
+    const ua = navigator.userAgent;
+    if (/iPhone|iPad|iPod/.test(ua)) return "ios";
+    if (/Android/.test(ua)) return "android";
+    if (/Windows/.test(ua)) return "windows";
+    if (/Mac OS X|Macintosh/.test(ua)) return "macos";
+    if (/Linux/.test(ua)) return "linux";
+    return "other";
+  }
+  function pill(ok, yes, no) {
+    return `<span class="pill ${ok ? "yes" : "no"}">${ok ? yes : no}</span>`;
+  }
+
+  const mode = displayMode();
+  document.getElementById("mode").textContent = mode;
+  document.getElementById("installed").innerHTML =
+    pill(mode !== "browser", "installed", "browser tab");
+  document.getElementById("platform").textContent = platform();
+
+  let deviceId = "(not set yet)";
+  try { deviceId = localStorage.getItem("bd_pwa_device") || deviceId; } catch {}
+  document.getElementById("device").textContent = deviceId;
+
+  const swEl = document.getElementById("sw");
+  if (!("serviceWorker" in navigator)) {
+    swEl.innerHTML = pill(false, "", "unsupported");
+  } else {
+    navigator.serviceWorker.getRegistration().then((reg) => {
+      swEl.innerHTML = pill(!!reg, "registered", "not yet");
+      if (!reg) {
+        navigator.serviceWorker.ready.then(() => {
+          swEl.innerHTML = pill(true, "registered", "");
+          try {
+            document.getElementById("device").textContent =
+              localStorage.getItem("bd_pwa_device") || deviceId;
+          } catch {}
+        });
+      }
+    });
+  }
+</script>
+</body>
+</html>

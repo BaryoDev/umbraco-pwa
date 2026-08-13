@@ -9,6 +9,7 @@ const API = "/umbraco/management/api/v1/baryodev/pwa";
 
 class BaryoDevPwaDashboard extends HTMLElement {
   #summary = null;
+  #readiness = null;
   #rows = [];
   #state = "loading"; // loading | ready | error
   #error = "";
@@ -24,11 +25,13 @@ class BaryoDevPwaDashboard extends HTMLElement {
     this.#render();
 
     try {
-      const [summary, rows] = await Promise.all([
+      const [summary, readiness, rows] = await Promise.all([
         this.#get(`${API}/summary`),
+        this.#get(`${API}/readiness`),
         this.#get(`${API}/installs?installedOnly=${this.#installedOnly}`),
       ]);
       this.#summary = summary;
+      this.#readiness = readiness;
       this.#rows = rows;
       this.#state = "ready";
     } catch (err) {
@@ -84,6 +87,24 @@ class BaryoDevPwaDashboard extends HTMLElement {
         .pwa-stat .v { font-size: 30px; font-weight: 300; line-height: 1.1;
                        font-variant-numeric: tabular-nums; }
         .pwa-stat .sub { font-size: 12px; color: var(--uui-color-text-alt, #68676b); }
+        .pwa-ready {
+          border-radius: var(--uui-border-radius, 3px);
+          padding: var(--uui-size-space-4, 12px) var(--uui-size-space-5, 16px);
+          border-left: 3px solid;
+          font-size: 14px;
+        }
+        .pwa-ready.ok   { border-color: var(--uui-color-positive, #2b8e57);
+                          background: var(--uui-color-positive-standalone, #eaf5ee); }
+        .pwa-ready.warn { border-color: var(--uui-color-warning, #fab00f);
+                          background: var(--uui-color-warning-standalone, #fdf5e3); }
+        .pwa-ready.bad  { border-color: var(--uui-color-danger, #d42054);
+                          background: var(--uui-color-danger-standalone, #fbeaef); }
+        .pwa-ready ul { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 8px; }
+        .pwa-detail { color: var(--uui-color-text-alt, #68676b); font-size: 13px; }
+        .pwa-advisory {
+          font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+          color: var(--uui-color-text-alt, #68676b);
+        }
         .pwa-scroll { overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 14px; }
         th {
@@ -143,6 +164,8 @@ class BaryoDevPwaDashboard extends HTMLElement {
         )}
       </div>
 
+      ${this.#readinessPanel()}
+
       <div class="pwa-toolbar">
         <uui-toggle id="installed-only" label="Installed only" ${
           this.#installedOnly ? "checked" : ""
@@ -151,6 +174,40 @@ class BaryoDevPwaDashboard extends HTMLElement {
 
       ${this.#table()}
     `;
+  }
+
+  // Browsers enforce installability silently. A site can look completely fine and simply never
+  // offer to install, which is exactly what happened on this package's own demo when the
+  // manifest icons 404'd. Showing the failing condition turns a mystery into a to-do.
+  #readinessPanel() {
+    const r = this.#readiness;
+    if (!r) return "";
+
+    const failing = (r.checks || []).filter((c) => !c.passed);
+    if (!failing.length) {
+      return `<div class="pwa-ready ok">
+        <strong>This site is installable.</strong>
+        Visitors on Android and desktop Chrome will be offered the install prompt.
+      </div>`;
+    }
+
+    const blocking = failing.filter((c) => !c.advisory);
+    const rows = failing
+      .map(
+        (c) => `<li><strong>${escapeHtml(c.name)}</strong>${
+          c.advisory ? ' <span class="pwa-advisory">advisory</span>' : ""
+        }<br><span class="pwa-detail">${escapeHtml(c.detail)}</span></li>`,
+      )
+      .join("");
+
+    return `<div class="pwa-ready ${blocking.length ? "bad" : "warn"}">
+      <strong>${
+        blocking.length
+          ? "This site is not installable yet."
+          : "Installable, with one recommendation."
+      }</strong>
+      <ul>${rows}</ul>
+    </div>`;
   }
 
   #table() {

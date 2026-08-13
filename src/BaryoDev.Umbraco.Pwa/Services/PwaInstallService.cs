@@ -22,6 +22,12 @@ internal class PwaInstallService : IPwaInstallService
     private static readonly string[] KnownDisplayModes =
         ["standalone", "minimal-ui", "fullscreen", "browser"];
 
+    // Platform is sniffed from the user agent by the client, so anything can arrive here.
+    // Anything unrecognised becomes "other" rather than being stored verbatim: the dashboard
+    // groups by this column, and one crafted value would otherwise show up as a "platform".
+    private static readonly string[] KnownPlatforms =
+        ["ios", "android", "windows", "macos", "linux", "other"];
+
     private readonly IScopeProvider _scopeProvider;
     private readonly IOptionsMonitor<PwaOptions> _options;
 
@@ -61,7 +67,7 @@ internal class PwaInstallService : IPwaInstallService
             db.Insert(new PwaInstallDto
             {
                 DeviceId = deviceId,
-                Platform = Clean(report.Platform, 32),
+                Platform = Platform(report.Platform),
                 DisplayMode = displayMode,
                 Installed = installed,
                 FirstSeenAt = now,
@@ -73,7 +79,7 @@ internal class PwaInstallService : IPwaInstallService
         else
         {
             existing.DisplayMode = displayMode;
-            existing.Platform = Clean(report.Platform, 32) ?? existing.Platform;
+            existing.Platform = Platform(report.Platform);
             existing.LastSeenAt = now;
             existing.LaunchCount++;
 
@@ -141,6 +147,12 @@ internal class PwaInstallService : IPwaInstallService
         InstalledAt = dto.InstalledAt,
         LaunchCount = dto.LaunchCount,
     };
+
+    private static string Platform(string? value)
+    {
+        var cleaned = Clean(value, 32)?.ToLowerInvariant();
+        return cleaned is not null && KnownPlatforms.Contains(cleaned) ? cleaned : "other";
+    }
 
     private static string? Clean(string? value, int maxLength)
     {

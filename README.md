@@ -65,6 +65,22 @@ are the difference between the package working and appearing not to.
 | `ServeAssets` | `true` | Off if the site already ships its own `sw.js` |
 | `ServiceWorker.Version` | assembly version | Change per deploy to purge stale cached assets |
 
+## It tells you why it is not working
+
+Browsers enforce installability silently. Miss a 512px icon, or point at one that 404s, and Chrome
+simply never offers to install your site. Nothing errors and nothing logs.
+
+The dashboard runs a preflight and names the failing condition:
+
+- served over HTTPS (a service worker will not register otherwise, localhost excepted)
+- manifest has a name
+- display mode is app-like rather than `browser`
+- a 192px and a 512px icon are configured **and actually reachable**
+- a maskable icon, advisory: without one Android crops your icon into a white circle
+
+This check exists because it caught a real failure while this package's own demo was being
+deployed.
+
 ## What it records
 
 One row per browser, keyed by an id the browser generates for itself:
@@ -81,6 +97,7 @@ installed this, on what" without becoming a record of who visited.
 | `POST` | `/umbraco/pwa/api/report` | anonymous, by necessity |
 | `GET` | `/umbraco/management/api/v1/baryodev/pwa/summary` | Settings section |
 | `GET` | `/umbraco/management/api/v1/baryodev/pwa/installs` | Settings section |
+| `GET` | `/umbraco/management/api/v1/baryodev/pwa/readiness` | Settings section |
 | `GET` | `/manifest.webmanifest`, `/sw.js`, `/baryodev-pwa.js` | anonymous |
 
 The report endpoint always returns `202` with no body. It is best-effort telemetry, so a client
@@ -106,6 +123,21 @@ reportPwaStatus((report) =>
 ```
 
 The dashboard does not care which client sent the report.
+
+## Verified, not assumed
+
+57 tests run against a real Umbraco booting on SQLite, covering the migration, the endpoints, the
+generated assets and the dashboard registration.
+
+Beyond that, the package was deployed to a live Umbraco 18 behind nginx and driven with a real
+browser, which confirmed end to end:
+
+| | |
+| --- | --- |
+| Service worker | registered at root scope, `https://.../sw.js` |
+| Caching | shell populated; the backoffice stayed out of it after a live `/umbraco/` fetch |
+| Install prompt | `beforeinstallprompt` fired and the banner rendered with a working Install button |
+| Tracking | the visit reached the database, and a second visit incremented the launch count rather than adding a row |
 
 ## Requirements
 

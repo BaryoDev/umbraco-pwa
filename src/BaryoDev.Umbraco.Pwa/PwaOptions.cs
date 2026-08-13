@@ -37,6 +37,36 @@ public class PwaOptions
     public PwaManifestOptions Manifest { get; set; } = new();
 
     public PwaServiceWorkerOptions ServiceWorker { get; set; } = new();
+
+    public PwaInstallPromptOptions InstallPrompt { get; set; } = new();
+}
+
+/// <summary>
+/// The "add this to your home screen" banner. Without one, most visitors never discover the site
+/// is installable at all: Chrome buries its own prompt, and iOS has no prompt whatsoever.
+/// </summary>
+public class PwaInstallPromptOptions
+{
+    /// <summary>On by default. An installable site nobody is told about is not much use.</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>Falls back to the manifest short name, then the manifest name.</summary>
+    public string? AppName { get; set; }
+
+    public string Description { get; set; } =
+        "Add it to your home screen for a full-screen, app-like experience.";
+
+    /// <summary>Colours the install button. Falls back to the manifest theme colour.</summary>
+    public string? AccentColor { get; set; }
+
+    /// <summary>Shown beside the text. Falls back to the first manifest icon.</summary>
+    public string? IconUrl { get; set; }
+
+    /// <summary>
+    /// Path prefixes where the prompt is suppressed. The backoffice is excluded by default:
+    /// an editor does not need to be asked to install the site they are editing.
+    /// </summary>
+    public List<string> HideOnPaths { get; set; } = new() { "/umbraco" };
 }
 
 /// <summary>The web app manifest, which is what makes a site installable at all.</summary>

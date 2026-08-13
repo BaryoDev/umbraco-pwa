@@ -27,6 +27,8 @@ public class PwaComposer : IComposer
 
         builder.Services.AddSingleton<IPwaInstallService, PwaInstallService>();
         builder.Services.AddSingleton<IPwaAssetGenerator, PwaAssetGenerator>();
+        builder.Services.AddSingleton<IPwaReadinessService, PwaReadinessService>();
+        builder.Services.AddHttpClient();
 
         builder.AddNotificationAsyncHandler<UmbracoApplicationStartingNotification, PwaMigrationHandler>();
     }

@@ -48,3 +48,26 @@ public class PwaInstallSummary
     /// <summary>Installed-browser counts by platform, highest first.</summary>
     public Dictionary<string, int> ByPlatform { get; set; } = new();
 }
+
+/// <summary>
+/// Whether a browser will actually offer to install this site, and if not, what is stopping it.
+/// </summary>
+public class PwaReadiness
+{
+    /// <summary>True when every non-advisory check passes.</summary>
+    public bool Installable { get; set; }
+
+    public List<PwaCheck> Checks { get; set; } = new();
+}
+
+public class PwaCheck
+{
+    public string Name { get; set; } = string.Empty;
+    public bool Passed { get; set; }
+
+    /// <summary>What was found, or what to do about it.</summary>
+    public string Detail { get; set; } = string.Empty;
+
+    /// <summary>A recommendation rather than a requirement. Does not block installability.</summary>
+    public bool Advisory { get; set; }
+}

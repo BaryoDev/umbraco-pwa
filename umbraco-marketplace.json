@@ -1,0 +1,35 @@
+{
+  "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
+  "PackageType": "Package",
+  "Category": "Developer Tools",
+  "Description": "Turn an Umbraco site into an installable, offline-capable app, and see who installed it from the backoffice you are already signed into. Free and self-hosted: the install data lands in your own database and never leaves your server, so there is no third-party dashboard to log into and no processor to declare.",
+  "AuthorDetails": {
+    "Name": "BaryoDev",
+    "Description": "Small open source .NET and JavaScript packages.",
+    "Url": "https://github.com/BaryoDev",
+    "ImageUrl": "https://avatars.githubusercontent.com/u/BaryoDev"
+  },
+  "Screenshots": [
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/BaryoDev/umbraco-pwa/main/docs/dashboard.png",
+      "Caption": "Install adoption in the Settings section: installed devices, install rate, 30-day active, and a device table."
+    },
+    {
+      "ImageUrl": "https://raw.githubusercontent.com/BaryoDev/umbraco-pwa/main/docs/install-prompt.png",
+      "Caption": "The install prompt. A real Install button on Android, and Add to Home Screen instructions on iOS, where browsers offer no install API."
+    }
+  ],
+  "DocumentationUrl": "https://github.com/BaryoDev/umbraco-pwa#readme",
+  "BugsUrl": "https://github.com/BaryoDev/umbraco-pwa/issues",
+  "SourceCodeUrl": "https://github.com/BaryoDev/umbraco-pwa",
+  "LicenseType": "Free",
+  "Tags": [
+    "pwa",
+    "progressive web app",
+    "service worker",
+    "offline",
+    "install",
+    "add to home screen",
+    "privacy"
+  ]
+}

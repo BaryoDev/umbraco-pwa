@@ -25,14 +25,29 @@ namespace BaryoDev.Umbraco.Pwa.Controllers;
 public class PwaInstallsController : ManagementApiControllerBase
 {
     private readonly IPwaInstallService _installs;
+    private readonly IPwaReadinessService _readiness;
 
-    public PwaInstallsController(IPwaInstallService installs) => _installs = installs;
+    public PwaInstallsController(IPwaInstallService installs, IPwaReadinessService readiness)
+    {
+        _installs = installs;
+        _readiness = readiness;
+    }
 
     [HttpGet("summary")]
     [MapToApiVersion("1.0")]
     [ProducesResponseType(typeof(PwaInstallSummary), StatusCodes.Status200OK)]
     public async Task<IActionResult> Summary(CancellationToken cancellationToken)
         => Ok(await _installs.GetSummaryAsync(cancellationToken));
+
+    /// <summary>
+    /// Why the site is or is not installable. Browsers enforce these conditions silently, so
+    /// without this the only symptom of a broken setup is an install prompt that never appears.
+    /// </summary>
+    [HttpGet("readiness")]
+    [MapToApiVersion("1.0")]
+    [ProducesResponseType(typeof(PwaReadiness), StatusCodes.Status200OK)]
+    public async Task<IActionResult> Readiness(CancellationToken cancellationToken)
+        => Ok(await _readiness.CheckAsync(Request, cancellationToken));
 
     [HttpGet("installs")]
     [MapToApiVersion("1.0")]

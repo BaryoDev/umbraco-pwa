@@ -20,6 +20,7 @@
     <PackageTags>umbraco;umbraco-marketplace;pwa;progressive-web-app;service-worker;offline;install</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/BaryoDev/umbraco-pwa</PackageProjectUrl>
     <RepositoryUrl>https://github.com/BaryoDev/umbraco-pwa</RepositoryUrl>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
@@ -34,6 +35,7 @@
 
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="../../icon.png" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>
