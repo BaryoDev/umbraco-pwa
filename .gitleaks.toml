@@ -35,6 +35,7 @@ regexes = [
 description = "Deliberate non-secrets"
 regexes = [
   '''LocalOnly-ChangeMe-1234!''',
+  '''DEV-ONLY-PLACEHOLDER-override-in-production-see-README''',
 ]
 paths = [
   '''tests/BaryoDev\.Umbraco\.Pwa\.Tests/.*''',
