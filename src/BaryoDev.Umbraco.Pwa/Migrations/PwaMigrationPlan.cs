@@ -11,7 +11,9 @@ namespace BaryoDev.Umbraco.Pwa.Migrations;
 /// </summary>
 internal class PwaMigrationPlan : MigrationPlan
 {
-    public const string InitialState = "baryodev-pwa-init";
+    // `new` because MigrationPlan has its own InitialState meaning the empty starting state.
+    // This is the state a site reaches after the first step, which is a different thing.
+    public new const string InitialState = "baryodev-pwa-init";
 
     public PwaMigrationPlan() : base("BaryoDevPwa")
     {

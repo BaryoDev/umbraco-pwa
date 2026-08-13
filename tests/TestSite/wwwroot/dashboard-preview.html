@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>PWA dashboard</title>
+
+<!--
+  Loads the real dashboard component against the real API, outside the backoffice shell, so it can
+  be photographed for documentation. The component and the data are the shipped ones; only the
+  Umbraco chrome around them is absent. Not part of the package.
+-->
+
+<script type="module" src="/App_Plugins/BaryoDev.Pwa/dashboard.js"></script>
+
+<style>
+  /* Approximates the backoffice's own tokens so the component renders as it does in situ. */
+  :root {
+    --uui-color-surface: #fff;
+    --uui-color-border: #d8d7d9;
+    --uui-color-divider: #f3f3f5;
+    --uui-color-text-alt: #68676b;
+    --uui-border-radius: 3px;
+    --uui-size-space-4: 12px;
+    --uui-size-space-5: 16px;
+    --uui-color-positive: #2b8e57;
+    --uui-color-positive-standalone: #eaf5ee;
+    --uui-color-warning: #fab00f;
+    --uui-color-warning-standalone: #fdf5e3;
+    --uui-color-danger: #d42054;
+    --uui-color-danger-standalone: #fbeaef;
+  }
+  body {
+    margin: 0; padding: 24px; background: #f3f3f5; color: #1b264f;
+    font: 15px/1.5 -apple-system, "Segoe UI", Roboto, system-ui, sans-serif;
+  }
+  .shell { max-width: 980px; margin: 0 auto; }
+  .chrome {
+    background: #fff; border: 1px solid #d8d7d9; border-radius: 6px; overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .chrome > header {
+    padding: 14px 20px; border-bottom: 1px solid #e9e9eb;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .chrome h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+  .crumb { font-size: 12px; color: #68676b; }
+  .chrome .content { padding: 20px; }
+
+  /* Minimal stand-ins for the uui-* elements the backoffice provides. */
+  uui-box { display: block; }
+  uui-toggle { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: #68676b; }
+  uui-toggle::before {
+    content: ""; width: 32px; height: 18px; border-radius: 9px;
+    background: #d8d7d9; box-shadow: inset 12px 0 0 0 #fff, inset 13px 0 0 1px #d8d7d9;
+  }
+  uui-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px; font-weight: 600;
+    background: #f3f3f5; color: #68676b; border: 1px solid #e0e0e2;
+  }
+  uui-tag[color="positive"] { background: #eaf5ee; color: #2b8e57; border-color: #bfe0cc; }
+  uui-loader-bar { display: block; height: 4px; background: #e9e9eb; border-radius: 2px; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="chrome">
+      <header>
+        <h1>Settings</h1>
+        <span class="crumb">&rsaquo;&nbsp; PWA</span>
+      </header>
+      <div class="content">
+        <baryodev-pwa-dashboard></baryodev-pwa-dashboard>
+
+        <script>
+          // Documentation shot only: cap the device table so the image stays readable.
+          const cap = new URLSearchParams(location.search).get('rows');
+          if (cap) {
+            const trim = () => {
+              const rows = document.querySelectorAll('baryodev-pwa-dashboard tbody tr');
+              [...rows].slice(Number(cap)).forEach((r) => r.remove());
+            };
+            new MutationObserver(trim).observe(document.body, { subtree: true, childList: true });
+            setTimeout(trim, 1500);
+          }
+        </script>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

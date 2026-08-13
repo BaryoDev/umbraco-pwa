@@ -1,0 +1,41 @@
+# Secret scanning config.
+#
+# The default rules catch provider tokens (AWS keys, GitHub PATs and so on). They would NOT have
+# caught what actually went wrong here: a working admin password sitting in appsettings.json of a
+# publicly deployed demo. Generic credentials in config files are the realistic failure for this
+# repo, so they get explicit rules.
+
+title = "BaryoDev.Umbraco.Pwa"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "umbraco-unattended-password"
+description = "Umbraco unattended-install password committed in config"
+# No lookahead: gitleaks uses Go's RE2, which has none. The placeholder is exempted through
+# the allowlist below instead.
+regex = '''(?i)"UnattendedUserPassword"\s*:\s*"[^"]{6,}"'''
+tags = ["password", "umbraco"]
+
+[[rules]]
+id = "connection-string-password"
+description = "Password inside a connection string"
+regex = '''(?i)(password|pwd)\s*=\s*[^;"'\s]{6,}'''
+tags = ["password", "connection-string"]
+[rules.allowlist]
+regexes = [
+  '''(?i)(password|pwd)\s*=\s*(placeholder|changeme|example|your[-_]?password)''',
+]
+
+# Only the obvious placeholder is allowlisted globally. The in-process test fixture supplies its
+# own throwaway password, so that one path is exempt by path rather than by value: allowlisting the
+# value itself would have suppressed exactly the finding this config exists to catch.
+[allowlist]
+description = "Deliberate non-secrets"
+regexes = [
+  '''LocalOnly-ChangeMe-1234!''',
+]
+paths = [
+  '''tests/BaryoDev\.Umbraco\.Pwa\.Tests/.*''',
+]

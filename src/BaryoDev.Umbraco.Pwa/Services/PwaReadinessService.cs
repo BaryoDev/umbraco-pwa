@@ -1,4 +1,5 @@
 using BaryoDev.Umbraco.Pwa.Models;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 
@@ -22,11 +23,16 @@ internal class PwaReadinessService : IPwaReadinessService
 {
     private readonly IOptionsMonitor<PwaOptions> _options;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IWebHostEnvironment _environment;
 
-    public PwaReadinessService(IOptionsMonitor<PwaOptions> options, IHttpClientFactory httpClientFactory)
+    public PwaReadinessService(
+        IOptionsMonitor<PwaOptions> options,
+        IHttpClientFactory httpClientFactory,
+        IWebHostEnvironment environment)
     {
         _options = options;
         _httpClientFactory = httpClientFactory;
+        _environment = environment;
     }
 
     public async Task<PwaReadiness> CheckAsync(HttpRequest request, CancellationToken ct = default)
@@ -41,8 +47,10 @@ internal class PwaReadinessService : IPwaReadinessService
             Passed = request.IsHttps || request.Host.Host is "localhost" or "127.0.0.1",
             Detail = request.IsHttps
                 ? "Secure origin."
-                : "Browsers refuse to register a service worker on an insecure origin. "
-                  + "localhost is exempt; a public site is not.",
+                : request.Host.Host is "localhost" or "127.0.0.1"
+                    ? "localhost is treated as a secure origin, so this is fine in development."
+                    : "Browsers refuse to register a service worker on an insecure origin. "
+                      + "localhost is exempt; a public site is not.",
         });
 
         checks.Add(new PwaCheck
@@ -105,20 +113,52 @@ internal class PwaReadinessService : IPwaReadinessService
         };
     }
 
+    /// <summary>
+    /// Checks an icon actually exists.
+    /// </summary>
+    /// <remarks>
+    /// A relative path is resolved against the web root rather than fetched over HTTP. A server
+    /// issuing a request to itself from inside a request handler is fragile: it consumes a second
+    /// connection while holding the first, it fails behind proxies that do not route the public
+    /// host back internally, and on Kestrel it threw NotSupportedException outright, which is how
+    /// this was found. Umbraco stores media under the web root by default, so the file check
+    /// covers both static assets and uploaded media.
+    ///
+    /// Absolute URLs are a different case: those are genuinely elsewhere, so they still get a
+    /// probe, and that is not a self-request.
+    /// </remarks>
     private async Task<(bool Ok, string Detail)> Reachable(HttpRequest request, string src, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(src)) return (false, "no source set");
 
+        // A leading slash is a site-relative path, but on Unix Uri.TryCreate happily parses
+        // "/icon.png" as an absolute file:// URI, so testing IsAbsoluteUri alone sends the common
+        // case down the HTTP branch and it fails with "the 'file' scheme is not supported".
+        // Platform-dependent, and only on Linux and macOS: exactly where this ships.
+        Uri? remote = null;
+        if (!src.StartsWith('/')
+            && Uri.TryCreate(src, UriKind.Absolute, out var parsed)
+            && (parsed.Scheme == Uri.UriSchemeHttp || parsed.Scheme == Uri.UriSchemeHttps))
+        {
+            remote = parsed;
+        }
+
+        if (remote is null)
+        {
+            var relative = src.StartsWith('/') ? src[1..] : src;
+            var file = _environment.WebRootFileProvider.GetFileInfo(relative);
+
+            return file.Exists
+                ? (true, $"{file.Length / 1024}KB on disk")
+                : (false, "no such file under wwwroot");
+        }
+
         try
         {
-            var url = Uri.TryCreate(src, UriKind.Absolute, out var absolute)
-                ? absolute
-                : new Uri($"{request.Scheme}://{request.Host}{(src.StartsWith('/') ? src : "/" + src)}");
-
             using var client = _httpClientFactory.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(5);
 
-            using var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+            using var response = await client.GetAsync(remote, HttpCompletionOption.ResponseHeadersRead, ct);
 
             if (!response.IsSuccessStatusCode) return (false, $"HTTP {(int)response.StatusCode}");
 
@@ -129,7 +169,7 @@ internal class PwaReadinessService : IPwaReadinessService
         }
         catch (Exception ex)
         {
-            return (false, ex.GetType().Name);
+            return (false, $"{ex.GetType().Name}: {ex.Message}");
         }
     }
 }
