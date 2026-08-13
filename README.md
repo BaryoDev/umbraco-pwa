@@ -127,7 +127,14 @@ The dashboard does not care which client sent the report.
 ## Verified, not assumed
 
 57 tests run against a real Umbraco booting on SQLite, covering the migration, the endpoints, the
-generated assets and the dashboard registration.
+generated assets and the dashboard registration. CI runs the whole suite against **every supported
+major**, because a version range in a csproj is a claim and this is the evidence for it:
+
+| Umbraco | Runtime | Support | Tests |
+| --- | --- | --- | --- |
+| 16 | .NET 9 | standard-term | 57 / 57 |
+| 17 | .NET 10 | **current LTS**, into late 2027 | 57 / 57 |
+| 18 | .NET 10 | latest | 57 / 57 |
 
 Beyond that, the package was deployed to a live Umbraco 18 behind nginx and driven with a real
 browser, which confirmed end to end:
@@ -141,7 +148,12 @@ browser, which confirmed end to end:
 
 ## Requirements
 
-Umbraco 18, .NET 10. Support for 15 to 17 is planned once it is tested rather than assumed.
+Umbraco 16, 17 or 18. The package multi-targets .NET 9 and .NET 10 and NuGet picks the right one.
+
+**Umbraco 15 is not supported.** It is the last major with the synchronous `MigrationBase`, which
+16 replaced with `AsyncMigrationBase`. That break lands between 15 and 16 while the runtime break
+lands between 16 and 17, so the two do not align and one assembly cannot span both. 15 is also
+standard-term support and past its one-year window.
 
 ## Licence
 
