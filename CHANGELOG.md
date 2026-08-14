@@ -15,6 +15,9 @@ gets a migration note here. The `.approved.txt` files in
   every other check green and open on Umbraco's "no published content" page, because `StartUrl`
   defaults to `/`. Found on a real iPhone. The check distinguishes a static file under `wwwroot`,
   a published Umbraco route, and neither, and it is blocking rather than advisory. ([#16])
+- **PWA readiness is now checked once at application startup.** Failed installability checks are
+  written to the application log with their actionable details, making configuration problems
+  visible without opening the backoffice dashboard. ([#4])
 - `LICENSE`, `SECURITY.md`, this changelog, and issue and pull request templates.
 
 ### Changed
@@ -51,3 +54,4 @@ First release.
 [0.1.0]: https://github.com/BaryoDev/umbraco-pwa/releases/tag/v0.1.0
 [#5]: https://github.com/BaryoDev/umbraco-pwa/issues/5
 [#16]: https://github.com/BaryoDev/umbraco-pwa/issues/16
+[#4]: https://github.com/BaryoDev/umbraco-pwa/issues/4
