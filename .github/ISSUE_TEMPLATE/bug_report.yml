@@ -1,0 +1,75 @@
+name: Bug report
+description: Something behaves differently from what the README or the backoffice says it does.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before anything else, open **Settings → PWA** in the backoffice and look at the readiness
+        panel. Most "it will not install" reports are one of the conditions it already names, and
+        the panel will tell you which in a second.
+
+        The two failures found so far were both silent: icons that returned 404, and a start URL
+        pointing at a page with nothing published. Neither errored, neither logged, and no test
+        could have caught either. So please say what you *saw*, not only what you expected.
+
+  - type: input
+    id: version
+    attributes:
+      label: BaryoDev.Umbraco.Pwa version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: umbraco
+    attributes:
+      label: Umbraco version
+      placeholder: "17.6.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Where you saw it
+      options:
+        - Chrome or Edge on desktop
+        - Chrome on Android
+        - Safari on iPhone or iPad
+        - The Umbraco backoffice
+        - Somewhere else
+    validations:
+      required: true
+
+  - type: textarea
+    id: readiness
+    attributes:
+      label: What the readiness panel says
+      description: Settings → PWA. Paste the failing checks, or say that all of them pass.
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected instead
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Your BaryoDev:Pwa configuration
+      description: From appsettings.json. Redact anything you would rather not share.
+      render: json
+
+  - type: checkboxes
+    id: context
+    attributes:
+      label: Anything that applies
+      options:
+        - label: The site is behind a reverse proxy
+        - label: The site runs under a virtual directory rather than at the domain root
+        - label: It works on Android but not on iOS, or the other way round
+        - label: The service worker is registered but does nothing

@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: My site will not offer to install
+    url: https://github.com/BaryoDev/umbraco-pwa#it-tells-you-why-it-is-not-working
+    about: Check Settings → PWA in the backoffice first. The readiness panel names the failing condition, and it is usually icons or the start URL.
+  - name: Question about using the package
+    url: https://github.com/BaryoDev/umbraco-pwa/discussions
+    about: Usage questions are better as a discussion than an issue.
+  - name: Security issue
+    url: https://github.com/BaryoDev/.github/blob/main/SECURITY.md
+    about: Please do not open a public issue for anything security related.

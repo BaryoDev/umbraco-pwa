@@ -1,0 +1,63 @@
+name: Feature request
+description: Something this package should do and cannot.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Three constraints decide most design questions here, and they are worth knowing before
+        you write this up. They are also the reasons to choose this over a hosted service, so a
+        feature that breaks one is usually the wrong feature even when it is useful.
+
+        **Nothing leaves the server.** Install data lands in the site's own database. A feature
+        that calls a third party cannot live in this package.
+
+        **No build step.** The dashboard is a plain custom element against the `uui-*` components
+        the backoffice already ships. If a change means a site owner has to run npm, it is the
+        wrong change.
+
+        **No column that identifies a visitor.** No IP, no user agent, no visitor id. The table
+        can answer "how many installed this, and on what" and is structurally incapable of
+        answering "who visited". That guarantee is the product.
+
+        The [roadmap](https://github.com/BaryoDev/umbraco-pwa/issues/15) may already cover this.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and where does the package get in the way?
+    validations:
+      required: true
+
+  - type: textarea
+    id: shape
+    attributes:
+      label: What it might look like
+      description: Config, an API, a backoffice screen. A sketch is fine, it does not have to be right.
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of thing is this
+      options:
+        - Parity with a hosted service like Progressier
+        - Something only a CMS-side package can do
+        - A fix to how an existing feature behaves
+        - Not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Against the three constraints
+      options:
+        - label: This needs no third-party service at runtime
+        - label: This needs no build step for the site owner
+        - label: This stores nothing that identifies a visitor
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you are doing instead today
