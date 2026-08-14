@@ -44,6 +44,9 @@ public class UmbracoSiteFixture : WebApplicationFactory<Program>, IAsyncLifetime
 
         builder.UseSetting("BaryoDev:Pwa:Manifest:Name", "Fixture Site");
         builder.UseSetting("BaryoDev:Pwa:Manifest:ShortName", "Fixture");
+        // Pinned rather than inherited. The demo site sets its own StartUrl, and a test
+        // asserting the generated manifest should not change when the demo config does.
+        builder.UseSetting("BaryoDev:Pwa:Manifest:StartUrl", "/");
         builder.UseSetting("BaryoDev:Pwa:ServiceWorker:CachePrefix", "fixture");
         builder.UseSetting("BaryoDev:Pwa:ServiceWorker:Version", "test1");
 
