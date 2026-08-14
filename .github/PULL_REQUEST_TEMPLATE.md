@@ -11,6 +11,7 @@
 - [ ] A test fails without this change
 - [ ] `dotnet test tests/BaryoDev.Umbraco.Pwa.Tests` passes locally
 - [ ] Still works on Umbraco 16, 17 and 18, or the difference is handled with a conditional
+- [ ] `CHANGELOG.md` updated under `## [Unreleased]`
 
 ## If the public API changed
 
