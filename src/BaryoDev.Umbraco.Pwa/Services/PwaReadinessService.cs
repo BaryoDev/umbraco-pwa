@@ -2,6 +2,7 @@ using BaryoDev.Umbraco.Pwa.Models;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+using Umbraco.Cms.Core.Services;
 
 namespace BaryoDev.Umbraco.Pwa.Services;
 
@@ -24,15 +25,18 @@ internal class PwaReadinessService : IPwaReadinessService
     private readonly IOptionsMonitor<PwaOptions> _options;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IWebHostEnvironment _environment;
+    private readonly IDocumentUrlService _documentUrls;
 
     public PwaReadinessService(
         IOptionsMonitor<PwaOptions> options,
         IHttpClientFactory httpClientFactory,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        IDocumentUrlService documentUrls)
     {
         _options = options;
         _httpClientFactory = httpClientFactory;
         _environment = environment;
+        _documentUrls = documentUrls;
     }
 
     public async Task<PwaReadiness> CheckAsync(HttpRequest request, CancellationToken ct = default)
@@ -95,6 +99,14 @@ internal class PwaReadinessService : IPwaReadinessService
                 Detail = reachable ? icon.Src : $"{icon.Src} is not reachable: {detail}",
             });
         }
+
+        var (startOk, startDetail) = StartUrlHasContent(m.StartUrl);
+        checks.Add(new PwaCheck
+        {
+            Name = "Start URL has content",
+            Passed = startOk,
+            Detail = startDetail,
+        });
 
         checks.Add(new PwaCheck
         {
@@ -172,4 +184,69 @@ internal class PwaReadinessService : IPwaReadinessService
             return (false, $"{ex.GetType().Name}: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Checks the installed app will open on something.
+    /// </summary>
+    /// <remarks>
+    /// Found on a real iPhone. Add to Home Screen succeeded, every other check was green, and the
+    /// app opened on Umbraco's "your website doesn't contain any published content yet" page,
+    /// because StartUrl defaults to "/" and nothing was published there.
+    ///
+    /// This is a worse failure than the missing icons that created this service. A missing icon is
+    /// loud, since Chrome refuses to install. A bad start URL is silent: installation succeeds and
+    /// the fault only shows the first time somebody taps the icon.
+    ///
+    /// No HTTP self-request here, for the reasons in Reachable below. A static file is checked on
+    /// disk, and anything else is asked of Umbraco directly, which is a question only a CMS-side
+    /// package can answer.
+    /// </remarks>
+    private (bool Ok, string Detail) StartUrlHasContent(string startUrl)
+    {
+        var path = string.IsNullOrWhiteSpace(startUrl) ? "/" : startUrl.Trim();
+
+        // Query strings and fragments are not part of the route.
+        var cut = path.IndexOfAny(['?', '#']);
+        if (cut >= 0) path = path[..cut];
+        if (path.Length == 0) path = "/";
+
+        // A static file under wwwroot is a legitimate start URL and needs no CMS lookup.
+        if (path != "/")
+        {
+            var file = _environment.WebRootFileProvider.GetFileInfo(path.TrimStart('/'));
+            if (file.Exists) return (true, $"{path} is served from wwwroot.");
+        }
+
+        try
+        {
+            // IDocumentUrlService is the one route API present unchanged across Umbraco 16, 17
+            // and 18. IPublishedContentCache.GetByRoute and GetAtRoot were obsoleted in 16 and
+            // removed in 17, so using those would have needed conditional compilation.
+            if (!_documentUrls.HasAny())
+            {
+                return (false, path == "/"
+                    ? "Start URL is the site root, but nothing is published, so the installed app "
+                      + "opens on Umbraco's default page. Publish a home page, or point "
+                      + "BaryoDev:Pwa:Manifest:StartUrl at a page that exists."
+                    : $"{path} cannot resolve because nothing is published yet.");
+            }
+
+            var key = _documentUrls.GetDocumentKeyByRoute(path, null, null, false);
+
+            if (key is not null) return (true, $"{path} resolves to published content.");
+
+            return (false, path == "/"
+                ? "Start URL is the site root, but no published page answers it, so the installed "
+                  + "app opens on Umbraco's default page. Publish a home page, or point "
+                  + "BaryoDev:Pwa:Manifest:StartUrl at a page that exists."
+                : $"{path} is not a file under wwwroot and does not resolve to published content, "
+                  + "so the installed app opens on a 404.");
+        }
+        catch (Exception ex)
+        {
+            // Never fail the whole preflight because one lookup threw.
+            return (true, $"Could not be checked: {ex.GetType().Name}.");
+        }
+    }
+
 }

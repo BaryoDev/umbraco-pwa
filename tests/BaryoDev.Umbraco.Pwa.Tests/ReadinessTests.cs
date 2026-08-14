@@ -49,6 +49,24 @@ public class ReadinessTests
         }
     }
 
+
+    /// <summary>Runs the check with StartUrl swapped in, leaving the rest of the config alone.</summary>
+    private async Task<PwaReadiness> CheckWithStartUrl(string startUrl)
+    {
+        var options = _site.Resolve<IOptionsMonitor<PwaOptions>>().CurrentValue;
+        var original = options.Manifest.StartUrl;
+
+        try
+        {
+            options.Manifest.StartUrl = startUrl;
+            return await Check();
+        }
+        finally
+        {
+            options.Manifest.StartUrl = original;
+        }
+    }
+
     [Fact]
     public async Task An_icon_that_does_not_exist_is_reported_rather_than_ignored()
     {
@@ -148,6 +166,45 @@ public class ReadinessTests
 
         var maskable = readiness.Checks.Single(c => c.Name == "Maskable icon");
         maskable.Advisory.ShouldBeTrue();
+    }
+
+
+    [Fact]
+    public async Task A_start_url_at_an_empty_site_root_is_reported()
+    {
+        // Found on a real iPhone. Add to Home Screen worked, every check was green, and the
+        // installed app opened on Umbraco's "your website doesn't contain any published content
+        // yet" placeholder. StartUrl defaults to "/", and nothing is published there.
+        //
+        // This fails worse than the missing icon that created this feature. A missing icon is
+        // loud: Chrome refuses to install and you notice. A bad start URL is silent. It installs,
+        // the icon is right, and the failure only appears the first time somebody taps it.
+        var readiness = await CheckWithStartUrl("/");
+
+        var check = readiness.Checks.Single(c => c.Name == "Start URL has content");
+        check.Passed.ShouldBeFalse();
+        check.Detail.ShouldContain("published", Case.Insensitive);
+        readiness.Installable.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_start_url_pointing_at_a_real_page_passes()
+    {
+        // The other half. The test site serves demo.html from wwwroot, which is exactly the fix
+        // the deployed demo needed.
+        var readiness = await CheckWithStartUrl("/demo.html");
+
+        readiness.Checks.Single(c => c.Name == "Start URL has content").Passed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_start_url_that_points_nowhere_is_reported()
+    {
+        var readiness = await CheckWithStartUrl("/no-such-page.html");
+
+        var check = readiness.Checks.Single(c => c.Name == "Start URL has content");
+        check.Passed.ShouldBeFalse();
+        check.Detail.ShouldContain("no-such-page.html");
     }
 
     [Fact]
