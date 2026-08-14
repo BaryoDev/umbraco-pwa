@@ -4,6 +4,9 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY src/BaryoDev.Umbraco.Pwa/ ./src/BaryoDev.Umbraco.Pwa/
+# Central Package Management: TestSite.csproj declares PackageReferences without versions,
+# so without this the restore fails with NU1015.
+COPY tests/Directory.Packages.props ./tests/
 COPY tests/TestSite/ ./tests/TestSite/
 COPY README.md icon.png ./
 
