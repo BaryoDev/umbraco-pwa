@@ -2,7 +2,7 @@
   "$schema": "https://marketplace.umbraco.com/umbraco-marketplace-schema.json",
   "PackageType": "Package",
   "Category": "Developer Tools",
-  "Description": "Turn an Umbraco site into an installable, offline-capable app, and see who installed it from the backoffice you are already signed into. Free and self-hosted: the install data lands in your own database and never leaves your server, so there is no third-party dashboard to log into and no processor to declare.",
+  "Description": "Make your Umbraco site installable and offline-capable, with install tracking that stays in your own database. Free and MIT licensed. The install prompt handles both Android and iOS, a network-first service worker keeps the site working offline, and adoption appears in the backoffice you are already signed into, so there is no third-party dashboard to log into and no sub-processor to declare.",
   "AuthorDetails": {
     "Name": "BaryoDev",
     "Description": "Small open source .NET and JavaScript packages.",
