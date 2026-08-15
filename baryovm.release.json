@@ -1,0 +1,13 @@
+{
+  "localRoot": "~/repos/BaryoDev.Umbraco.Pwa",
+  "remoteRoot": "/home/opc/umbraco-pwa",
+  "sync": ["src", "tests", "README.md", "icon.png"],
+  "exclude": ["bin", "obj", "node_modules", ".git", "umbraco/Data", "umbraco/Logs", "._*"],
+  "builds": [
+    {
+      "image": "umbraco-pwa-demo:arm64",
+      "dockerfile": "tests/TestSite/Dockerfile",
+      "context": "."
+    }
+  ]
+}

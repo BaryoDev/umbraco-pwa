@@ -1,0 +1,25 @@
+# The public demo at dev-playground.baryo.dev. nginx on the host terminates TLS and proxies
+# to the published port, so the site itself is plain HTTP inside the container and relies on
+# UseForwardedHeaders in TestSite/Program.cs to learn the real scheme.
+services:
+  demo:
+    build:
+      context: ..
+      dockerfile: tests/TestSite/Dockerfile
+    image: umbraco-pwa-demo:arm64
+    container_name: umbraco-pwa-demo
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_HTTP_PORTS: "8080"
+    ports:
+      # Loopback only. Reaching it from outside is nginx's job, not Docker's.
+      - "127.0.0.1:5301:8080"
+    volumes:
+      # Pre-existing volume, kept by name on purpose: it holds the demo's SQLite database and
+      # the published content. Renaming it silently starts the demo over with an empty site.
+      - umbraco-pwa-demo-data:/app/umbraco/Data
+
+volumes:
+  umbraco-pwa-demo-data:
+    external: true
