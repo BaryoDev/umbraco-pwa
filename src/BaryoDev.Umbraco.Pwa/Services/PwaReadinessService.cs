@@ -12,6 +12,21 @@ public interface IPwaReadinessService
 }
 
 /// <summary>
+/// Performs PWA readiness checks that can be evaluated safely at application startup,
+/// without requiring an active HTTP request.
+/// </summary>
+internal interface IPwaStartupReadinessService
+{
+    /// <summary>
+    /// Checks whether the configured PWA is ready for installation using only
+    /// request-independent checks.
+    /// </summary>
+    /// <param name="ct">Token used to cancel the readiness check.</param>
+    /// <returns>The aggregated PWA readiness result.</returns>
+    Task<PwaReadiness> CheckAsync(CancellationToken ct = default);
+}
+
+/// <summary>
 /// Answers "why is my site not offering to install?" before someone has to ask it.
 /// </summary>
 /// <remarks>
@@ -20,7 +35,7 @@ public interface IPwaReadinessService
 /// logged, and the only symptom was a banner that never appeared. Every check here is a condition
 /// a browser enforces silently.
 /// </remarks>
-internal class PwaReadinessService : IPwaReadinessService
+internal class PwaReadinessService : IPwaReadinessService, IPwaStartupReadinessService
 {
     private readonly IOptionsMonitor<PwaOptions> _options;
     private readonly IHttpClientFactory _httpClientFactory;
@@ -39,13 +54,52 @@ internal class PwaReadinessService : IPwaReadinessService
         _documentUrls = documentUrls;
     }
 
-    public async Task<PwaReadiness> CheckAsync(HttpRequest request, CancellationToken ct = default)
+    /// <summary>
+    /// Checks whether the current request is served from an installable PWA configuration.
+    /// </summary>
+    /// <param name="request">
+    /// The current HTTP request, used to evaluate request-specific requirements such as
+    /// secure-origin availability.
+    /// </param>
+    /// <param name="ct">Token used to cancel the readiness check.</param>
+    /// <returns>The aggregated PWA readiness result.</returns>
+    public async Task<PwaReadiness> CheckAsync(
+        HttpRequest request,
+        CancellationToken ct = default)
     {
-        var o = _options.CurrentValue;
-        var m = o.Manifest;
+        List<PwaCheck> checks = [CreateHttpsCheck(request)];
+
+        await AddCommonChecksAsync(checks, ct);
+
+        return CreateResult(checks);
+    }
+
+    /// <summary>
+    /// Performs request-independent readiness checks during application startup.
+    /// </summary>
+    /// <remarks>
+    /// The secure-origin check is intentionally omitted because no reliable public request
+    /// context exists during startup, particularly when TLS is terminated by a reverse proxy.
+    /// </remarks>
+    async Task<PwaReadiness> IPwaStartupReadinessService.CheckAsync(
+        CancellationToken ct)
+    {
         var checks = new List<PwaCheck>();
 
-        checks.Add(new PwaCheck
+        await AddCommonChecksAsync(checks, ct);
+
+        return CreateResult(checks);
+    }
+
+    /// <summary>
+    /// Checks whether the current request is served from an origin that browsers
+    /// consider secure enough to install a PWA.
+    /// </summary>
+    /// <param name="request">The current HTTP request.</param>
+    /// <returns>The secure-origin readiness check.</returns>
+    private static PwaCheck CreateHttpsCheck(HttpRequest request)
+    {
+        return new PwaCheck
         {
             Name = "Served over HTTPS",
             Passed = request.IsHttps || request.Host.Host is "localhost" or "127.0.0.1",
@@ -55,7 +109,20 @@ internal class PwaReadinessService : IPwaReadinessService
                     ? "localhost is treated as a secure origin, so this is fine in development."
                     : "Browsers refuse to register a service worker on an insecure origin. "
                       + "localhost is exempt; a public site is not.",
-        });
+        };
+    }
+
+    /// <summary>
+    /// Adds readiness checks that do not depend on an active HTTP request.
+    /// </summary>
+    /// <param name="checks">The collection that receives the generated checks.</param>
+    /// <param name="ct">Token used to cancel asynchronous checks.</param>
+    private async Task AddCommonChecksAsync(
+        List<PwaCheck> checks,
+        CancellationToken ct)
+    {
+        var o = _options.CurrentValue;
+        var m = o.Manifest;
 
         checks.Add(new PwaCheck
         {
@@ -75,7 +142,6 @@ internal class PwaReadinessService : IPwaReadinessService
                 : m.Display,
         });
 
-        // The two icon sizes Chrome requires. This is the check that would have caught the demo.
         foreach (var required in new[] { "192x192", "512x512" })
         {
             var icon = m.Icons.FirstOrDefault(i => i.Sizes == required);
@@ -88,19 +154,24 @@ internal class PwaReadinessService : IPwaReadinessService
                     Passed = false,
                     Detail = $"Not configured. Chrome will not offer to install a site without a {required} icon.",
                 });
+
                 continue;
             }
 
-            var (reachable, detail) = await Reachable(request, icon.Src, ct);
+            var (reachable, detail) = await Reachable(icon.Src, ct);
+
             checks.Add(new PwaCheck
             {
                 Name = $"Icon {required}",
                 Passed = reachable,
-                Detail = reachable ? icon.Src : $"{icon.Src} is not reachable: {detail}",
+                Detail = reachable
+                    ? icon.Src
+                    : $"{icon.Src} is not reachable: {detail}",
             });
         }
 
         var (startOk, startDetail) = StartUrlHasContent(m.StartUrl);
+
         checks.Add(new PwaCheck
         {
             Name = "Start URL has content",
@@ -117,29 +188,39 @@ internal class PwaReadinessService : IPwaReadinessService
                 : "Optional. Without one, Android crops your icon into a white circle.",
             Advisory = true,
         });
+    }
 
+    /// <summary>
+    /// Aggregates individual readiness checks into the final PWA readiness result.
+    /// </summary>
+    /// <param name="checks">The completed readiness checks.</param>
+    /// <returns>
+    /// A readiness result that is installable when every non-advisory check has passed.
+    /// </returns>
+    private static PwaReadiness CreateResult(List<PwaCheck> checks)
+    {
         return new PwaReadiness
         {
-            Installable = checks.Where(c => !c.Advisory).All(c => c.Passed),
+            Installable = checks
+                .Where(c => !c.Advisory)
+                .All(c => c.Passed),
             Checks = checks,
         };
     }
 
     /// <summary>
-    /// Checks an icon actually exists.
+    /// Checks whether a configured PWA icon can be reached.
     /// </summary>
     /// <remarks>
-    /// A relative path is resolved against the web root rather than fetched over HTTP. A server
-    /// issuing a request to itself from inside a request handler is fragile: it consumes a second
-    /// connection while holding the first, it fails behind proxies that do not route the public
-    /// host back internally, and on Kestrel it threw NotSupportedException outright, which is how
-    /// this was found. Umbraco stores media under the web root by default, so the file check
-    /// covers both static assets and uploaded media.
-    ///
-    /// Absolute URLs are a different case: those are genuinely elsewhere, so they still get a
-    /// probe, and that is not a self-request.
+    /// Relative paths are resolved directly against the web root. Absolute HTTP and HTTPS
+    /// URLs are probed remotely because they may point to externally hosted assets.
     /// </remarks>
-    private async Task<(bool Ok, string Detail)> Reachable(HttpRequest request, string src, CancellationToken ct)
+    /// <param name="src">The configured icon source.</param>
+    /// <param name="ct">Token used to cancel a remote probe.</param>
+    /// <returns>
+    /// A tuple indicating whether the icon is reachable and a diagnostic description.
+    /// </returns>
+    private async Task<(bool Ok, string Detail)> Reachable(string src, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(src)) return (false, "no source set");
 
@@ -178,6 +259,10 @@ internal class PwaReadinessService : IPwaReadinessService
             return mediaType.StartsWith("image/")
                 ? (true, mediaType)
                 : (false, $"served as {mediaType}, not an image");
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
