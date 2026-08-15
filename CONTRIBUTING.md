@@ -100,6 +100,12 @@ Look for [`good first issue`](https://github.com/BaryoDev/umbraco-pwa/labels/goo
 If nothing fits and you want to help, opening an issue describing how you use Umbraco and what is
 missing is genuinely useful.
 
+## One entirely optional favour
+
+If this package saved you an afternoon, a star costs you nothing and is the only signal a small
+free package has that anyone is using it. It is not a condition of anything: your pull request gets
+the same review either way, and nobody is checking.
+
 ## Reporting a security issue
 
 Do not open a public issue. See
