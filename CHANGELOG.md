@@ -11,6 +11,11 @@ gets a migration note here. The `.approved.txt` files in
 
 ### Added
 
+- **`IPwaAssetGenerator.Client(string pathBase)`.** An overload rather than a default argument on
+  the existing `Client()`, because rewriting a method in place would have made a bug fix a major.
+  It carries a default interface implementation that returns the root-relative script, so an
+  outside class implementing only `Client()` still compiles and keeps the behaviour it already had.
+
 - **Readiness now checks the start URL resolves to something.** A site could install cleanly with
   every other check green and open on Umbraco's "no published content" page, because `StartUrl`
   defaults to `/`. Found on a real iPhone. The check distinguishes a static file under `wwwroot`,
@@ -27,6 +32,14 @@ gets a migration note here. The `.approved.txt` files in
 
 ### Fixed
 
+- **The client wrote both of its URLs from the domain root.** `fetch("/umbraco/pwa/api/report")`
+  and `navigator.serviceWorker.register("/sw.js")` ignored the application's path base, so on a
+  site served under a prefix install reports went nowhere and the service worker never registered,
+  silently costing the site its offline support. Both are now written from the path base, and the
+  registration states its scope.
+- **A browser in fullscreen counted as an install.** `(display-mode: fullscreen)` matches a browser
+  someone pressed F11 in, not only an installed app, so any visitor who went fullscreen was
+  recorded as installed. It now counts only when the site's own manifest asks for fullscreen.
 - The Docker build for the demo site failed with `NU1015` because it never copied
   `tests/Directory.Packages.props`.
 

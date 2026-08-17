@@ -1,5 +1,7 @@
 using System.Net;
 using System.Text.Json;
+using BaryoDev.Umbraco.Pwa.Services;
+using Microsoft.Extensions.Options;
 using Shouldly;
 
 namespace BaryoDev.Umbraco.Pwa.Tests;
@@ -14,6 +16,26 @@ public class GeneratedAssetTests
     private readonly UmbracoSiteFixture _site;
 
     public GeneratedAssetTests(UmbracoSiteFixture site) => _site = site;
+
+    /// <summary>
+    /// A generator built straight from options, for the cases the hosted site cannot show. The
+    /// test host runs at a domain root, so anything about a path base is invisible through it.
+    /// </summary>
+    private static PwaAssetGenerator Generator(Action<PwaOptions>? configure = null)
+    {
+        var options = new PwaOptions();
+        configure?.Invoke(options);
+        return new PwaAssetGenerator(new StaticOptionsMonitor(options));
+    }
+
+    private sealed class StaticOptionsMonitor(PwaOptions value) : IOptionsMonitor<PwaOptions>
+    {
+        public PwaOptions CurrentValue { get; } = value;
+
+        public PwaOptions Get(string? name) => CurrentValue;
+
+        public IDisposable? OnChange(Action<PwaOptions, string?> listener) => null;
+    }
 
     [Theory]
     [InlineData("/manifest.webmanifest", "application/manifest+json")]
@@ -105,7 +127,53 @@ public class GeneratedAssetTests
     {
         var client = await _site.Client.GetStringAsync("/baryodev-pwa.js");
 
-        client.ShouldContain("navigator.serviceWorker.register(\"/sw.js\")");
+        // Written against BASE rather than a literal path. The test host runs at a domain root, so
+        // BASE is empty here and a literal "/sw.js" would pass either way; asserting the
+        // expression is what makes this fail if the path base is ever dropped again.
+        client.ShouldContain("register(BASE + \"/sw.js\"");
+        client.ShouldContain("var BASE =");
+    }
+
+    [Theory]
+    [InlineData("", "\"\"")]
+    [InlineData("/umbraco-pwa", "\"/umbraco-pwa\"")]
+    [InlineData("/deep/prefix/", "\"/deep/prefix\"")]
+    public void The_client_carries_the_path_base_it_was_built_for(string pathBase, string expected)
+    {
+        // The report endpoint and the service worker are both written from BASE, so a site mounted
+        // under a prefix has to receive its prefix here. It used to receive nothing: both URLs were
+        // absolute from the domain root, so install reports went somewhere that does not exist and
+        // the worker registration failed outright, taking offline support with it.
+        //
+        // The trailing slash case matters on its own: "/deep/prefix/" + "/sw.js" would produce a
+        // double slash, which a browser reads as a protocol-relative URL to a host called "sw.js".
+        var script = Generator().Client(pathBase);
+
+        script.ShouldContain($"var BASE = {expected};");
+
+        // Declared is not the same as used, and asserting only the declaration is how the first
+        // version of this test passed against the very bug it describes: BASE was emitted
+        // correctly while both URLs still ignored it. These pin the two places that have to read
+        // it, and no absolute form of either may survive anywhere in the script.
+        script.ShouldContain("fetch(BASE + \"/umbraco/pwa/api/report\"");
+        script.ShouldContain("register(BASE + \"/sw.js\"");
+        script.ShouldNotContain("fetch(\"/umbraco/pwa/api/report\"");
+        script.ShouldNotContain("register(\"/sw.js\"");
+    }
+
+    [Theory]
+    [InlineData("standalone")]
+    [InlineData("minimal-ui")]
+    public void A_site_that_does_not_ask_for_fullscreen_does_not_count_fullscreen_as_installed(string display)
+    {
+        // (display-mode: fullscreen) matches a browser someone pressed F11 in, not only an
+        // installed app, so it is an install signal only when this site's manifest asked for it.
+        // Without this every visitor who went fullscreen was recorded as an install, and the
+        // dashboard's adoption number was inflated by a keystroke.
+        var script = Generator(o => o.Manifest.Display = display).Client();
+
+        script.ShouldContain($"var MANIFEST_DISPLAY = \"{display}\";");
+        script.ShouldContain("if (mode === \"fullscreen\") return MANIFEST_DISPLAY === \"fullscreen\";");
     }
 
     [Fact]

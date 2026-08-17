@@ -153,6 +153,7 @@ namespace BaryoDev.Umbraco.Pwa.Services
     public interface IPwaAssetGenerator
     {
         string Client();
+        string Client(string pathBase);
         string Manifest();
         string ServiceWorker();
     }
