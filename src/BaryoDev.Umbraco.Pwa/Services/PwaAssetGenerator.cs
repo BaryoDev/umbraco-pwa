@@ -9,7 +9,15 @@ public interface IPwaAssetGenerator
 {
     string Manifest();
     string ServiceWorker();
-    string Client();
+
+    /// <summary>Builds the client script for a site mounted at <paramref name="pathBase"/>.</summary>
+    /// <remarks>
+    /// The parameter is optional, so every existing call to <c>Client()</c> still compiles. It is
+    /// a breaking change only for an outside implementation of this interface, which the package
+    /// does not document as an extension point: the implementation is internal and the interface
+    /// exists so the service can be resolved and replaced through DI.
+    /// </remarks>
+    string Client(string pathBase = "");
 }
 
 /// <summary>
@@ -153,10 +161,34 @@ self.addEventListener("fetch", (event) => {
 """;
     }
 
-    public string Client()
+    /// <summary>Builds the client script.</summary>
+    /// <param name="pathBase">
+    /// The application's path base, as ASP.NET strips it before routing, with no trailing slash.
+    /// Empty for a site at a domain root, which is the common case and the default.
+    /// </param>
+    /// <remarks>
+    /// The path base has to be baked in here because the script's two absolute URLs, the report
+    /// endpoint and the service worker, used to be written from the domain root. On a site served
+    /// under a prefix both missed: install reports went to a path that does not exist, and the
+    /// service worker registration failed outright, which silently costs the package its offline
+    /// support. A service worker's scope is bounded by its own location, so a root registration
+    /// could not have controlled a prefixed site even if the file had been found.
+    ///
+    /// Optional so this stays source compatible for anyone already calling <c>Client()</c>.
+    /// </remarks>
+    public string Client(string pathBase = "")
     {
         var o = _options.CurrentValue;
         var track = o.TrackInstalls ? "true" : "false";
+
+        // Normalised rather than trusted: a trailing slash here would produce "//sw.js", which
+        // browsers read as a protocol-relative URL to a host named "sw.js".
+        var basePath = J(pathBase.TrimEnd('/'));
+
+        // The manifest's own display mode, so the script can tell an installed app in fullscreen
+        // from a browser someone pressed F11 in. Both match (display-mode: fullscreen) and only
+        // one of them is an install.
+        var manifestDisplay = J(o.Manifest.Display ?? "standalone");
 
         var prompt = o.InstallPrompt;
         var appName = Coalesce(prompt.AppName, o.Manifest.ShortName, o.Manifest.Name, "this app");
@@ -178,6 +210,8 @@ self.addEventListener("fetch", (event) => {
 
   var KEY = "bd_pwa_device";
   var TRACK = {{track}};
+  var BASE = {{basePath}};
+  var MANIFEST_DISPLAY = {{manifestDisplay}};
 
   var PROMPT = {{promptEnabled}};
   var APP_NAME = {{promptName}};
@@ -224,18 +258,32 @@ self.addEventListener("fetch", (event) => {
     return "other";
   }
 
+  // Whether a display mode means the app was installed, rather than merely that the window looks
+  // like an app. standalone and minimal-ui are only reachable from an installed app. fullscreen is
+  // not: (display-mode: fullscreen) also matches a browser someone put into fullscreen, so it
+  // counts only when this site's manifest actually asked for fullscreen. Without that check every
+  // visitor who pressed F11 was recorded as an install.
+  function isInstalledMode(mode) {
+    if (mode === "standalone" || mode === "minimal-ui") return true;
+    if (mode === "fullscreen") return MANIFEST_DISPLAY === "fullscreen";
+    return false;
+  }
+
   function report(forceInstalled) {
     if (!TRACK) return;
     var mode = displayMode();
+    var installed = forceInstalled || isInstalledMode(mode);
     var body = {
       deviceId: deviceId(),
+      // Only rewritten when the install actually happened and the window has not caught up yet,
+      // which is the appinstalled event firing while the page is still in a tab.
       displayMode: forceInstalled && mode === "browser" ? "standalone" : mode,
       platform: platform(),
-      installed: forceInstalled || mode !== "browser"
+      installed: installed
     };
     try {
       // keepalive so the report survives the page being closed right after launch.
-      fetch("/umbraco/pwa/api/report", {
+      fetch(BASE + "/umbraco/pwa/api/report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -248,7 +296,12 @@ self.addEventListener("fetch", (event) => {
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", function () {
-      navigator.serviceWorker.register("/sw.js").catch(function () {});
+      // Scope stated explicitly. A worker controls only URLs at or below its own location, so on a
+      // prefixed site the default scope would already be right, but saying it makes the intent
+      // legible and fails loudly rather than silently if the two ever disagree.
+      navigator.serviceWorker
+        .register(BASE + "/sw.js", { scope: BASE + "/" })
+        .catch(function () {});
     });
   }
 

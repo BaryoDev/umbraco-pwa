@@ -56,6 +56,11 @@ public class PwaAssetsController : ControllerBase
     {
         if (!_options.CurrentValue.ServeAssets) return NotFound();
 
-        return Content(_generator.Client(), "text/javascript", Encoding.UTF8);
+        // PathBase, not Path: ASP.NET strips the prefix a site is mounted under before routing, so
+        // this is the only place the script can learn it. Empty at a domain root.
+        return Content(
+            _generator.Client(Request.PathBase.Value ?? string.Empty),
+            "text/javascript",
+            Encoding.UTF8);
     }
 }
