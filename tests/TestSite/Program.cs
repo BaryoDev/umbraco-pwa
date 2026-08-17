@@ -1,5 +1,6 @@
 // Stated explicitly rather than relying on implicit global usings: which ones the Umbraco
 // SDK injects differs between majors, and this host is built against 16, 17 and 18.
+using System.Reflection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Umbraco.Extensions;
 using Umbraco.Cms.Core.DependencyInjection;
@@ -44,6 +45,22 @@ await app.BootUmbracoAsync();
 // included, reads the scheme and the client address from the request, so the rewrite has to
 // happen before any of it runs.
 app.UseForwardedHeaders();
+
+// Which build of the package this site is actually running, so the publish workflow can refuse to
+// ship something the playground never ran.
+//
+// The MVID rather than the version. A version string cannot tell today's 0.2.0 from yesterday's,
+// and it is the server half that needs proving: comparing the generated client only shows the
+// client is current, and a server-only change leaves that script byte identical.
+//
+// Demo code, deliberately, not package code. The package gains no endpoint and no public surface
+// for a build concern. A GUID identifying a compilation discloses nothing.
+app.MapGet("/build-info", () => Results.Json(new
+{
+    mvid = typeof(BaryoDev.Umbraco.Pwa.PwaOptions).Assembly.ManifestModule.ModuleVersionId,
+    version = typeof(BaryoDev.Umbraco.Pwa.PwaOptions).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
+}));
 
 app.UseUmbraco()
     .WithMiddleware(u =>
