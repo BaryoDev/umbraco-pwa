@@ -75,6 +75,185 @@ jobs:
           name: nupkgs
           path: ./nupkgs/*
 
+      # ---------------------------------------------------------------------------------------
+      # Everything above proves the source is correct. Nothing above proves the PACKAGE is, and
+      # they are different claims.
+      #
+      # Every test here, and the demo site, consume the library through a ProjectReference. A
+      # PackageReference resolves differently in exactly the places this package lives: static web
+      # assets travel through different plumbing, .props and .targets only apply when consumed as
+      # a package, and per-framework dependency groups are a package concept a project reference
+      # does not have.
+      #
+      # See DELIVERY.md in BaryoDev/.github for why each of these gates exists.
+      # ---------------------------------------------------------------------------------------
+
+      - name: Install the package into a scratch site, as a consumer would
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          FEED="$PWD/nupkgs"
+          WORK=$(mktemp -d)
+          cd "$WORK"
+
+          dotnet new web -o consumer --framework net10.0 >/dev/null
+          cd consumer
+
+          # A local feed only for this package. Restoring it from nuget.org would silently resolve
+          # an already published version and prove nothing about the bytes just built.
+          cat > nuget.config <<XML
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <packageSources>
+              <clear />
+              <add key="local" value="$FEED" />
+              <add key="nuget" value="https://api.nuget.org/v3/index.json" />
+            </packageSources>
+          </configuration>
+          XML
+
+          dotnet add package BaryoDev.Umbraco.Pwa --version "$VERSION" --source "$FEED"
+          dotnet build --configuration Release
+
+          # Parsed, not grepped. Two greps for the file and the path can match two different asset
+          # records, so a manifest with the file at the wrong path and some other asset at the
+          # right one would pass. This requires ONE record carrying both.
+          MANIFEST=$(find obj -name 'staticwebassets.build.json' | head -1)
+          test -n "$MANIFEST" || {
+            echo "::error::No static web assets manifest. The package contributed no client assets." && exit 1
+          }
+
+          python3 - "$MANIFEST" <<'PY'
+          import json, sys
+
+          assets = json.load(open(sys.argv[1])).get("Assets", [])
+          want_base = "App_Plugins/BaryoDev.Pwa"
+
+          at_base = [a for a in assets if a.get("BasePath", "").strip("/") == want_base]
+          if at_base:
+              print(f"Consumer resolves {len(at_base)} asset(s) at {want_base}")
+              sys.exit(0)
+
+          print(f"::error::No package assets are mapped to {want_base}.")
+          for b in sorted({a.get("BasePath") for a in assets}):
+              print(f"  saw BasePath={b!r}")
+          sys.exit(1)
+          PY
+
+          # While the package is installed here, read the MVID of the assembly that came out of it.
+          # The playground gate below compares the running server against this, so it is read from
+          # the consumer's resolved package rather than this repo's own build output.
+          cat > Program.cs <<'CS'
+          System.Console.WriteLine(
+              typeof(BaryoDev.Umbraco.Pwa.PwaOptions)
+                  .Assembly.ManifestModule.ModuleVersionId);
+          CS
+
+          dotnet run --configuration Release --no-restore > /tmp/package-mvid
+          test -s /tmp/package-mvid || { echo "::error::Could not read the package's MVID."; exit 1; }
+          echo "Packaged assembly mvid $(cat /tmp/package-mvid)"
+
+      - name: Refuse to publish a build the playground has not run
+        env:
+          PLAYGROUND: https://dev-playground.baryo.dev
+        run: |
+          # The playground exists so a build is observed working somewhere real before anyone can
+          # install it. That is only true if it is enforced.
+          #
+          # The server marker rather than the generated client script. A version string cannot tell
+          # one 0.2.0 from another, and a server-only change leaves the client byte identical, which
+          # is where most defects live.
+          # Content type asserted, not just the status. Umbraco's content pipeline answers 200 with
+          # the site's own HTML for any path it does not recognise, so a missing endpoint looks
+          # exactly like a working one to a status check. Verified against the live demo.
+          TYPE=$(curl -sS --max-time 30 -o /tmp/build-info -w '%{content_type}' "$PLAYGROUND/build-info") || {
+            echo "::error::Could not reach the playground." && exit 1
+          }
+          case "$TYPE" in
+            application/json*) ;;
+            *)
+              echo "::error::/build-info returned $TYPE, not JSON. The deployed build does not carry the marker."
+              echo "Deploy this commit first: baryovm stack release umbraco-pwa"
+              exit 1 ;;
+          esac
+
+          LIVE_MVID=$(python3 - <<'PY'
+          import json, re, sys
+
+          mvid = json.load(open("/tmp/build-info")).get("mvid", "")
+          # Shape checked so a null, an empty string or a truncated value cannot quietly compare
+          # equal to something later, or pass through as a plausible-looking blank.
+          if not re.fullmatch(r"[0-9a-fA-F-]{36}", mvid or ""):
+              print(f"::error::/build-info returned a malformed mvid: {mvid!r}", file=sys.stderr)
+              sys.exit(1)
+          print(mvid)
+          PY
+          ) || exit 1
+
+          PKG_MVID=$(cat /tmp/package-mvid)
+
+          echo "  live   $LIVE_MVID"
+          echo "  packed $PKG_MVID"
+
+          if [ "$LIVE_MVID" != "$PKG_MVID" ]; then
+            echo "::error::The playground is running a different build of this package."
+            echo "Deploy this commit first: baryovm stack release umbraco-pwa"
+            exit 1
+          fi
+          echo "Playground is running this exact build."
+
+      - name: Smoke test the playground
+        env:
+          PLAYGROUND: https://dev-playground.baryo.dev
+        run: |
+          fail=0
+          check() {
+            actual=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$PLAYGROUND$1")
+            if [ "$actual" = "$2" ]; then printf '  ok    %-34s %s\n' "$1" "$actual"
+            else printf '  FAIL  %-34s got %s want %s\n' "$1" "$actual" "$2"; fail=1; fi
+          }
+
+          check "/" 200
+          check "/manifest.webmanifest" 200
+          check "/sw.js" 200
+          check "/baryodev-pwa.js" 200
+          test "$fail" = "0" || { echo "::error::The playground is not serving its assets."; exit 1; }
+
+          # The three defects 0.2.0 fixed were all in the generated client, and all invisible to a
+          # status code. These assert the behaviour rather than the response.
+          CLIENT=$(curl -s --max-time 30 "$PLAYGROUND/baryodev-pwa.js")
+
+          # This demo runs at a domain root, so BASE is empty here and an absolute URL would be
+          # accidentally correct. That is exactly how the path-base defect survived to release, so
+          # assert the EXPRESSION, which is wrong in every deployment shape if it regresses.
+          printf '%s' "$CLIENT" | grep -q 'fetch(BASE + "/umbraco/pwa/api/report"' || {
+            echo "::error::The client posts to an absolute report path again. It will miss on any prefixed site." && exit 1
+          }
+          printf '%s' "$CLIENT" | grep -q 'register(BASE + "/sw.js"' || {
+            echo "::error::The service worker is registered from the domain root again. Offline support breaks under a prefix." && exit 1
+          }
+          printf '%s' "$CLIENT" | grep -q 'MANIFEST_DISPLAY === "fullscreen"' || {
+            echo "::error::Fullscreen is being counted as an install again." && exit 1
+          }
+
+          # A manifest that does not parse is an install prompt that never appears, with no error
+          # anywhere. Written as a heredoc rather than a -c one-liner because nesting escaped
+          # quotes inside a shell-quoted f-string does not survive, which this did not on the
+          # first attempt.
+          curl -s --max-time 30 -o /tmp/manifest.json "$PLAYGROUND/manifest.webmanifest"
+          python3 - <<'PY'
+          import json, sys
+
+          m = json.load(open("/tmp/manifest.json"))
+          missing = [k for k in ("name", "start_url", "display", "icons") if not m.get(k)]
+          if missing:
+              print(f"::error::The manifest is missing {', '.join(missing)}, so the site is not installable.")
+              sys.exit(1)
+          print("  manifest ok, display=" + str(m.get("display")) + ", icons=" + str(len(m["icons"])))
+          PY
+
+          echo "Playground healthy."
+
       # Requested here rather than earlier because the key expires after an
       # hour and each OIDC token buys exactly one key.
       # Runs on dry runs too, so a dry run actually verifies the trusted
@@ -86,16 +265,26 @@ jobs:
           user: ${{ vars.NUGET_USER || 'arnelirobles' }}
 
       - name: Confirm the key was issued
+        env:
+          # Through the environment rather than interpolated into the script. An expression is
+          # substituted into the shell source before the shell parses it, so a value containing
+          # shell syntax would be executed rather than compared, and it can surface in a trace.
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
         run: |
-          if [ -z "${{ steps.nuget_login.outputs.NUGET_API_KEY }}" ]; then
+          if [ -z "$NUGET_API_KEY" ]; then
             echo "::error::No API key returned. Check the trusted publishing policy on nuget.org." && exit 1
           fi
           echo "Trusted publishing OK: short-lived key issued."
 
+      # Publication requires a tag push, and only a tag push. The tag-match step above is itself
+      # conditional on a tag ref, so a dispatched run with dry_run unticked would otherwise reach
+      # push with the version check skipped rather than passed.
       - name: Publish
-        if: ${{ !inputs.dry_run }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.dry_run }}
+        env:
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
         run: |
           dotnet nuget push ./nupkgs/*.nupkg \
-            --api-key "${{ steps.nuget_login.outputs.NUGET_API_KEY }}" \
+            --api-key "$NUGET_API_KEY" \
             --source https://api.nuget.org/v3/index.json \
             --skip-duplicate
