@@ -10,14 +10,22 @@ public interface IPwaAssetGenerator
     string Manifest();
     string ServiceWorker();
 
+    /// <summary>Builds the client script for a site served at a domain root.</summary>
+    string Client();
+
     /// <summary>Builds the client script for a site mounted at <paramref name="pathBase"/>.</summary>
     /// <remarks>
-    /// The parameter is optional, so every existing call to <c>Client()</c> still compiles. It is
-    /// a breaking change only for an outside implementation of this interface, which the package
-    /// does not document as an extension point: the implementation is internal and the interface
-    /// exists so the service can be resolved and replaced through DI.
+    /// A second method rather than an optional parameter on the first. Adding a default argument
+    /// would have rewritten <c>Client()</c> in place, which the API approval rules count as a
+    /// major, and this is a bug fix. An overload is an addition, so it lands as a minor and no
+    /// existing call site changes meaning.
+    ///
+    /// It carries a default implementation so an outside class that implements only
+    /// <see cref="Client()"/> still compiles. That implementation ignores the path base and
+    /// returns the root-relative script, which is exactly what such a class produced before this
+    /// overload existed, so it degrades to the old behaviour rather than failing to build.
     /// </remarks>
-    string Client(string pathBase = "");
+    string Client(string pathBase) => Client();
 }
 
 /// <summary>
@@ -161,6 +169,9 @@ self.addEventListener("fetch", (event) => {
 """;
     }
 
+    /// <summary>Builds the client script for a site served at a domain root.</summary>
+    public string Client() => Client(string.Empty);
+
     /// <summary>Builds the client script.</summary>
     /// <param name="pathBase">
     /// The application's path base, as ASP.NET strips it before routing, with no trailing slash.
@@ -174,9 +185,8 @@ self.addEventListener("fetch", (event) => {
     /// support. A service worker's scope is bounded by its own location, so a root registration
     /// could not have controlled a prefixed site even if the file had been found.
     ///
-    /// Optional so this stays source compatible for anyone already calling <c>Client()</c>.
     /// </remarks>
-    public string Client(string pathBase = "")
+    public string Client(string pathBase)
     {
         var o = _options.CurrentValue;
         var track = o.TrackInstalls ? "true" : "false";
