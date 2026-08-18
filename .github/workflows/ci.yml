@@ -138,3 +138,55 @@ jobs:
           test -d tests/BaryoDev.Umbraco.Pwa.Tests/bin/Debug/${{ matrix.framework }} \
             || { echo "expected ${{ matrix.framework }} output for Umbraco ${{ matrix.umbraco }}"; exit 1; }
           echo "ran on ${{ matrix.framework }} as intended"
+
+  # The package ships JavaScript, and every other job verifies it by looking at its text. Three
+  # defects reached 0.2.0 with those assertions green, because a service worker that contains the
+  # right strings can still cache the wrong things. This job runs it.
+  #
+  # Once, not per matrix entry. The worker is generated from PwaOptions and not from anything
+  # Umbraco provides, so it is byte-identical across the three majors and the other job already
+  # proves each of them serves it.
+  browser:
+    runs-on: ubuntu-latest
+    name: Service worker behaviour (real browser)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            9.0.x
+            10.0.x
+
+      - name: Build
+        run: dotnet build tests/BaryoDev.Umbraco.Pwa.Browser.Tests -c Release
+
+      # The fixture installs Chromium itself so `dotnet test` is the whole command locally. On a
+      # fresh runner the browser also needs system libraries, which is what --with-deps adds and
+      # what an in-process install cannot do for itself.
+      - name: Install Chromium
+        run: pwsh tests/BaryoDev.Umbraco.Pwa.Browser.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Test
+        run: >
+          dotnet test tests/BaryoDev.Umbraco.Pwa.Browser.Tests
+          -c Release --no-build
+          --logger "trx;LogFileName=browser.trx"
+          --results-directory ${{ github.workspace }}/browserresults
+          --verbosity normal
+
+      # Same guard as the matrix job. A browser suite that silently discovers nothing exits zero,
+      # and this is the one job whose whole purpose is to catch what text assertions cannot.
+      - name: Assert the browser tests actually ran
+        run: |
+          TRX=$(find "${{ github.workspace }}/browserresults" -name 'browser.trx' | head -1)
+          test -n "$TRX" || { echo "no trx produced: nothing ran"; exit 1; }
+          TOTAL=$(grep -o 'total="[0-9]*"' "$TRX" | head -1 | grep -o '[0-9]*')
+          PASSED=$(grep -o 'passed="[0-9]*"' "$TRX" | head -1 | grep -o '[0-9]*')
+          echo "total=$TOTAL passed=$PASSED"
+          FAILED=$(grep -o 'failed="[0-9]*"' "$TRX" | head -1 | grep -o '[0-9]*')
+          # Passed rather than total, because some are deliberately skipped and a skip is recorded
+          # in total. Comparing the two would fail the job for the skips rather than for a defect.
+          test "${PASSED:-0}" -ge 5 || { echo "expected at least 5 passing browser tests, got ${PASSED:-0}"; exit 1; }
+          test "${FAILED:-1}" = "0" || { echo "$FAILED browser test(s) failed"; exit 1; }
