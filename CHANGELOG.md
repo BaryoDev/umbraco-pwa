@@ -9,6 +9,54 @@ gets a migration note here. The `.approved.txt` files in
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-18
+
+### Added
+
+- **Browser tests.** The package generates JavaScript that runs in a browser, and until now nothing
+  executed a line of it: every assertion was against generated text. That is how all three fixes
+  below reached 0.2.0 with a green suite. `BaryoDev.Umbraco.Pwa.Browser.Tests` starts a real
+  Umbraco on a loopback port and drives Chromium at it. ([#41])
+- `CLAUDE.md`, recording the conventions this repository already followed but had never written
+  down.
+
+### Changed
+
+- **Marketplace listing metadata corrected.** `umbraco-marketplace.json` carried `BugsUrl` and
+  `SourceCodeUrl`, neither of which is in the Marketplace schema, so both were silently ignored and
+  the listing carried no issue tracker link at all. The supported field is `IssueTrackerUrl`.
+  `LicenseType` moved to `LicenseTypes`, and the package is now flagged as looking for
+  contributors. ([#42])
+- **`PackageReleaseNotes` is set for the first time**, so NuGet shows a changelog. The Marketplace
+  schema has no field for one, which makes this the only place a release is described to someone
+  deciding whether to upgrade.
+
+### Fixed
+
+- **The service worker precached nothing, so the offline page was usually missing.** The install
+  handler was `self.skipWaiting()` and nothing else, which meant the navigation fallback was only
+  in the cache if the visitor happened to have loaded it while online. Someone who installed the
+  app from a deep page and then lost connection got the browser's own error page. The fallback is
+  now precached during `install`, and a fallback that will not fetch is caught rather than left to
+  abort the install. ([#30])
+
+
+- **The navigation branch cached error responses.** Its two neighbouring branches checked
+  `resp.ok` before writing to the cache and this one checked nothing, so a 404 or a maintenance
+  page served during a deploy was stored under that URL and served offline until the cache version
+  changed. The test added with the fix asserts structurally that no cache write anywhere in the
+  worker is unguarded, so a branch added later is covered too. ([#31])
+
+
+- **The worker stored responses the server said not to store.** Nothing anywhere in it read a
+  response header, so `Cache-Control: no-store` and `private` were ignored in all three branches,
+  as was a redirect. Cache Storage enforces no HTTP semantics of its own; the worker now applies
+  them itself in one place. Two parts of [#32] are still open: whether `/media/` belongs in the
+  default `SkipPaths`, and whether plain assets should stay cache-first. ([#32])
+
+
+## [0.2.0] - 2026-08-17
+
 ### Added
 
 - **`IPwaAssetGenerator.Client(string pathBase)`.** An overload rather than a default argument on
@@ -32,33 +80,16 @@ gets a migration note here. The `.approved.txt` files in
 
 ### Fixed
 
-- **The service worker precached nothing, so the offline page was usually missing.** The install
-  handler was `self.skipWaiting()` and nothing else, which meant the navigation fallback was only
-  in the cache if the visitor happened to have loaded it while online. Someone who installed the
-  app from a deep page and then lost connection got the browser's own error page. The fallback is
-  now precached during `install`, and a fallback that will not fetch is caught rather than left to
-  abort the install. ([#30])
-
-- **The navigation branch cached error responses.** Its two neighbouring branches checked
-  `resp.ok` before writing to the cache and this one checked nothing, so a 404 or a maintenance
-  page served during a deploy was stored under that URL and served offline until the cache version
-  changed. The test added with the fix asserts structurally that no cache write anywhere in the
-  worker is unguarded, so a branch added later is covered too. ([#31])
-
-- **The worker stored responses the server said not to store.** Nothing anywhere in it read a
-  response header, so `Cache-Control: no-store` and `private` were ignored in all three branches,
-  as was a redirect. Cache Storage enforces no HTTP semantics of its own; the worker now applies
-  them itself in one place. Two parts of [#32] are still open: whether `/media/` belongs in the
-  default `SkipPaths`, and whether plain assets should stay cache-first. ([#32])
-
 - **The client wrote both of its URLs from the domain root.** `fetch("/umbraco/pwa/api/report")`
   and `navigator.serviceWorker.register("/sw.js")` ignored the application's path base, so on a
   site served under a prefix install reports went nowhere and the service worker never registered,
   silently costing the site its offline support. Both are now written from the path base, and the
   registration states its scope.
+
 - **A browser in fullscreen counted as an install.** `(display-mode: fullscreen)` matches a browser
   someone pressed F11 in, not only an installed app, so any visitor who went fullscreen was
   recorded as installed. It now counts only when the site's own manifest asks for fullscreen.
+
 - The Docker build for the demo site failed with `NU1015` because it never copied
   `tests/Directory.Packages.props`.
 
@@ -90,3 +121,5 @@ First release.
 [#30]: https://github.com/BaryoDev/umbraco-pwa/issues/30
 [#31]: https://github.com/BaryoDev/umbraco-pwa/issues/31
 [#32]: https://github.com/BaryoDev/umbraco-pwa/issues/32
+[#41]: https://github.com/BaryoDev/umbraco-pwa/pull/41
+[#42]: https://github.com/BaryoDev/umbraco-pwa/pull/42
