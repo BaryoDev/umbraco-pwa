@@ -28,6 +28,10 @@
     <PackageTags>umbraco;umbraco-marketplace;pwa;progressive-web-app;service-worker;offline;install</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <!-- NuGet shows this on the package page, and without it the listing has no changelog at all.
+         The Umbraco Marketplace schema has no equivalent field, so this is the only place a
+         release is described to someone deciding whether to upgrade. Update it every release. -->
+    <PackageReleaseNotes>Fixes three service worker defects: the offline fallback was never precached, the navigation branch cached error responses, and Cache-Control was ignored everywhere. Full changelog: https://github.com/BaryoDev/umbraco-pwa/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/BaryoDev/umbraco-pwa</PackageProjectUrl>
     <RepositoryUrl>https://github.com/BaryoDev/umbraco-pwa</RepositoryUrl>
