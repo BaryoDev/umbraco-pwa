@@ -18,28 +18,36 @@ ROOT=${1:-src/BaryoDev.Umbraco.Pwa}
 [ -d "$ROOT" ] || { echo "source-hash: no such directory: $ROOT" >&2; exit 1; }
 
 if command -v sha256sum >/dev/null 2>&1; then
-  digest() { sha256sum | cut -d' ' -f1; }
+  file_digest()   { sha256sum "$1" | cut -d' ' -f1; }
+  stream_digest() { sha256sum      | cut -d' ' -f1; }
 else
   # macOS, for running this by hand
-  digest() { shasum -a 256 | cut -d' ' -f1; }
+  file_digest()   { shasum -a 256 "$1" | cut -d' ' -f1; }
+  stream_digest() { shasum -a 256      | cut -d' ' -f1; }
 fi
 
 # Build outputs are excluded because they are not source and are not synced to the VM. AppleDouble
 # files are excluded because a macOS rsync can carry them and a Linux checkout never has them.
 #
-# LC_ALL=C so the ordering is the same everywhere rather than depending on the machine's locale,
-# and each path goes into the digest before its contents, so a rename changes the hash.
+# Each file becomes one fixed-width record: its own digest, two spaces, then its path relative to
+# ROOT. Hashing per file rather than streaming the bytes is what makes the format unambiguous.
+# Concatenating "path\n" with raw contents is not: with files a and b, a="x" b="b\nz" and
+# a="xb\n" b="z" both produce "a\nxb\nb\nz", so two different trees could agree and the gate
+# would pass a playground running different source. A 64-character prefix cannot be confused with
+# the content that follows.
 #
-# Paths are recorded relative to ROOT, so the answer does not depend on where the tree happens to
-# sit. The image builds it at /src and CI builds it at the workspace root; without this they would
-# hash the same files to different values and the gate would fail for no reason.
+# Paths are relative to ROOT so the answer does not depend on where the tree sits: the image hashes
+# at /src and CI hashes at the workspace root. LC_ALL=C so the ordering does not depend on locale.
+# A path is part of its record, so a rename changes the result.
+#
+# Paths containing a newline are not handled and never occur here; `find | read` could not carry
+# them either.
 find "$ROOT" -type f \
     ! -path '*/bin/*' \
     ! -path '*/obj/*' \
     ! -name '._*' \
   | LC_ALL=C sort \
   | while IFS= read -r file; do
-      printf '%s\n' "${file#"$ROOT"/}"
-      cat "$file"
+      printf '%s  %s\n' "$(file_digest "$file")" "${file#"$ROOT"/}"
     done \
-  | digest
+  | stream_digest
