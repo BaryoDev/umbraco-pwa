@@ -55,12 +55,23 @@ app.UseForwardedHeaders();
 //
 // Demo code, deliberately, not package code. The package gains no endpoint and no public surface
 // for a build concern. A GUID identifying a compilation discloses nothing.
-app.MapGet("/build-info", () => Results.Json(new
+app.MapGet("/build-info", () =>
 {
-    mvid = typeof(BaryoDev.Umbraco.Pwa.PwaOptions).Assembly.ManifestModule.ModuleVersionId,
-    version = typeof(BaryoDev.Umbraco.Pwa.PwaOptions).Assembly
-        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
-}));
+    // Written by the Dockerfile from the source it built, using the same script CI runs. The mvid
+    // below stays for information: it cannot be compared against a CI build, because this image is
+    // built without .git while CI packs with SourceLink metadata, so the same source yields two
+    // different assemblies. The source hash is what the publish gate compares.
+    var hashFile = Path.Combine(AppContext.BaseDirectory, "source-hash");
+    var sourceHash = File.Exists(hashFile) ? File.ReadAllText(hashFile).Trim() : null;
+
+    return Results.Json(new
+    {
+        sourceHash,
+        mvid = typeof(BaryoDev.Umbraco.Pwa.PwaOptions).Assembly.ManifestModule.ModuleVersionId,
+        version = typeof(BaryoDev.Umbraco.Pwa.PwaOptions).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion,
+    });
+});
 
 app.UseUmbraco()
     .WithMiddleware(u =>

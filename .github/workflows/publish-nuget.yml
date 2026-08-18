@@ -149,9 +149,19 @@ jobs:
                   .Assembly.ManifestModule.ModuleVersionId);
           CS
 
-          dotnet run --configuration Release --no-restore > /tmp/package-mvid
-          test -s /tmp/package-mvid || { echo "::error::Could not read the package's MVID."; exit 1; }
-          echo "Packaged assembly mvid $(cat /tmp/package-mvid)"
+          dotnet run --configuration Release --no-restore > /tmp/consumer-output 2>&1 || {
+            echo "::error::The scratch consumer failed to run."; cat /tmp/consumer-output; exit 1;
+          }
+          # The GUID, not the whole stream. `dotnet run` writes build output to the same place as
+          # the program, and a NuGet advisory published against any transitive dependency adds more
+          # of it without anything here changing, which is how this came to log a wall of warnings
+          # where a mvid was expected.
+          grep -oE '[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}' \
+            /tmp/consumer-output | tail -1 > /tmp/package-mvid
+          test -s /tmp/package-mvid || {
+            echo "::error::Could not find an mvid in the consumer output."; cat /tmp/consumer-output; exit 1;
+          }
+          echo "The package installs and loads. Assembly mvid $(cat /tmp/package-mvid)"
 
       - name: Refuse to publish a build the playground has not run
         env:
@@ -177,30 +187,38 @@ jobs:
               exit 1 ;;
           esac
 
-          LIVE_MVID=$(python3 - <<'PY'
+          # The source hash rather than an assembly mvid. The playground builds from source in
+          # Docker with no .git present, while this job packs on a runner where SourceLink embeds
+          # repository metadata, so the same source produces two different assemblies and two
+          # different mvids. That comparison could never pass. The source is the thing both sides
+          # can agree on, and it is what the gate means to ask about.
+          LIVE_HASH=$(python3 - <<'PY'
           import json, re, sys
 
-          mvid = json.load(open("/tmp/build-info")).get("mvid", "")
+          value = json.load(open("/tmp/build-info")).get("sourceHash", "")
           # Shape checked so a null, an empty string or a truncated value cannot quietly compare
           # equal to something later, or pass through as a plausible-looking blank.
-          if not re.fullmatch(r"[0-9a-fA-F-]{36}", mvid or ""):
-              print(f"::error::/build-info returned a malformed mvid: {mvid!r}", file=sys.stderr)
+          if not re.fullmatch(r"[0-9a-f]{64}", value or ""):
+              print(f"::error::/build-info returned no usable sourceHash: {value!r}", file=sys.stderr)
+              print("The playground predates the source-hash marker. Deploy this commit first:", file=sys.stderr)
+              print("  baryovm stack release umbraco-pwa", file=sys.stderr)
               sys.exit(1)
-          print(mvid)
+          print(value)
           PY
           ) || exit 1
 
-          PKG_MVID=$(cat /tmp/package-mvid)
+          # The same script the image ran, so the two answers cannot drift apart.
+          BUILD_HASH=$(sh scripts/source-hash.sh)
 
-          echo "  live   $LIVE_MVID"
-          echo "  packed $PKG_MVID"
+          echo "  live  $LIVE_HASH"
+          echo "  build $BUILD_HASH"
 
-          if [ "$LIVE_MVID" != "$PKG_MVID" ]; then
-            echo "::error::The playground is running a different build of this package."
+          if [ "$LIVE_HASH" != "$BUILD_HASH" ]; then
+            echo "::error::The playground is running different source to the one being published."
             echo "Deploy this commit first: baryovm stack release umbraco-pwa"
             exit 1
           fi
-          echo "Playground is running this exact build."
+          echo "Playground is running this exact source."
 
       - name: Smoke test the playground
         env:
