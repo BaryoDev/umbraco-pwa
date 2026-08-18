@@ -91,7 +91,39 @@ const API_PREFIX = {{apiPrefix}};
 const SKIP = {{skip}};
 const NAV_FALLBACK = {{navFallback}};
 
-self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("install", (event) => {
+  // A visitor whose first offline navigation is to a page they have not opened before has
+  // nothing cached under that URL, so the fallback is all that stands between them and the
+  // browser's own error page. It has to be here rather than fetched on demand.
+  //
+  // Fetched and put rather than addAll. addAll stores whatever it is handed, so it would have
+  // been the one write in this worker that ignores what the server said, and it keeps the
+  // redirect flag: a redirected response cannot be replayed for a navigation, which is the
+  // failure this precache exists to prevent.
+  event.waitUntil(
+    fetch(NAV_FALLBACK)
+      .then((resp) => {
+        if (!storable(resp)) return;
+        return caches.open(SHELL).then((c) => c.put(NAV_FALLBACK, resp));
+      })
+      // A fallback that will not fetch today must not leave the site with no service worker.
+      .catch(() => {})
+      .then(() => self.skipWaiting()),
+  );
+});
+
+// The Cache Storage API stores whatever it is handed and enforces no HTTP semantics of its own,
+// so every rule the browser's own cache would apply has to be applied here instead.
+function storable(resp) {
+  if (!resp.ok || resp.type !== "basic") return false;
+
+  // Serving a redirected response from the cache under the original URL hands back the target's
+  // body for the source address, and a navigation rejects it outright.
+  if (resp.redirected) return false;
+
+  const directives = (resp.headers.get("Cache-Control") || "").toLowerCase().split(",");
+  return !directives.some((d) => d.trim() === "no-store" || d.trim() === "private");
+}
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
@@ -119,7 +151,7 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(req)
         .then((resp) => {
-          if (resp.ok && resp.type === "basic") {
+          if (storable(resp)) {
             const copy = resp.clone();
             caches.open(API).then((c) => c.put(req, copy));
           }
@@ -143,8 +175,10 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(
       fetch(req)
         .then((resp) => {
-          const copy = resp.clone();
-          caches.open(SHELL).then((c) => c.put(req, copy));
+          if (storable(resp)) {
+            const copy = resp.clone();
+            caches.open(SHELL).then((c) => c.put(req, copy));
+          }
           return resp;
         })
         .catch(() => caches.match(req).then((r) => r || caches.match(NAV_FALLBACK))),
@@ -157,7 +191,7 @@ self.addEventListener("fetch", (event) => {
       (cached) =>
         cached ||
         fetch(req).then((resp) => {
-          if (resp.ok && resp.type === "basic") {
+          if (storable(resp)) {
             const copy = resp.clone();
             caches.open(SHELL).then((c) => c.put(req, copy));
           }

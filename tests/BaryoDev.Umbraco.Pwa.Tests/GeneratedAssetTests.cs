@@ -177,6 +177,98 @@ public class GeneratedAssetTests
     }
 
     [Fact]
+    public void Every_cache_write_in_the_service_worker_is_guarded()
+    {
+        // The navigation branch used to write unconditionally while its two neighbours checked
+        // the response first, so a 404 or a maintenance page served during a deploy became that
+        // URL's offline experience until the cache version changed.
+        //
+        // Asserted structurally rather than by looking for the one line that was wrong, so a
+        // fourth branch added later is covered without anyone remembering to come back here.
+        var worker = Generator().ServiceWorker();
+        var lines = worker.Split('\n');
+
+        var writes = lines
+            .Select((line, index) => (line, index))
+            .Where(x => x.line.Contains("c.put("))
+            .ToList();
+
+        // Pinned, so the test cannot pass by finding nothing to check. Three fetch branches
+        // and the precache. Counting only the branches is how the precache slipped past this
+        // test on the change that introduced it.
+        writes.Count.ShouldBe(4);
+
+        // addAll stores whatever it receives, so it cannot be guarded. The call form, not the
+        // word, because the generator explains in a comment why it does not use it.
+        worker.ShouldNotContain(".addAll(");
+
+        var unguarded = writes
+            .Where(x => !string.Join("\n", lines.Skip(Math.Max(0, x.index - 3)).Take(3))
+                .Contains("storable(resp)"))
+            .Select(x => x.index + 1)
+            .ToList();
+
+        unguarded.ShouldBeEmpty();
+
+        // The guard lives in one function now. An inline copy is how the branches drifted apart.
+        worker.ShouldNotContain("resp.ok && resp.type");
+    }
+
+    [Fact]
+    public void The_service_worker_precaches_the_navigation_fallback()
+    {
+        // Without this the fallback is only cached if the visitor happened to navigate to it
+        // while online, so the offline page was missing for exactly the person who needed it.
+        var worker = Generator(o => o.ServiceWorker.NavigationFallback = "/offline").ServiceWorker();
+        var install = InstallHandler(worker);
+
+        worker.ShouldContain("const NAV_FALLBACK = \"/offline\"");
+        install.ShouldContain("waitUntil");
+        install.ShouldContain("fetch(NAV_FALLBACK)");
+        install.ShouldContain("c.put(NAV_FALLBACK, resp)");
+        install.ShouldContain("storable(resp)");
+    }
+
+    [Fact]
+    public void A_fallback_that_will_not_fetch_still_leaves_a_working_service_worker()
+    {
+        // addAll rejects on a non-2xx, which is right for the cache and wrong for the install:
+        // an unreachable fallback must not cost the site its service worker entirely.
+        var install = InstallHandler(Generator().ServiceWorker());
+
+        install.ShouldContain(".catch(");
+        install.ShouldContain("skipWaiting");
+    }
+
+    [Fact]
+    public void The_service_worker_honours_what_the_server_said_about_storing_a_response()
+    {
+        // Cache Storage enforces no HTTP semantics of its own, so a response the server marked
+        // no-store or private is stored anyway unless the worker checks.
+        var worker = Generator().ServiceWorker();
+
+        worker.ShouldContain("Cache-Control");
+        worker.ShouldContain("no-store");
+        worker.ShouldContain("private");
+
+        // A redirected response cached under the original URL hands back the target's body for
+        // the source address, and a navigation refuses it outright.
+        worker.ShouldContain("resp.redirected");
+    }
+
+    /// <summary>The install handler, isolated so a match elsewhere in the worker cannot pass.</summary>
+    private static string InstallHandler(string worker)
+    {
+        var start = worker.IndexOf("addEventListener(\"install\"", StringComparison.Ordinal);
+        var end = worker.IndexOf("function storable", StringComparison.Ordinal);
+
+        start.ShouldBeGreaterThan(-1);
+        end.ShouldBeGreaterThan(start);
+
+        return worker[start..end];
+    }
+
+    [Fact]
     public async Task Every_asset_is_reachable_without_signing_in()
     {
         // A visitor is not a backoffice user. If these ever land behind auth the site stops being
