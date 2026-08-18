@@ -190,11 +190,17 @@ public class GeneratedAssetTests
 
         var writes = lines
             .Select((line, index) => (line, index))
-            .Where(x => x.line.Contains("c.put(req, copy)"))
+            .Where(x => x.line.Contains("c.put("))
             .ToList();
 
-        // Pinned, so the test cannot pass by finding nothing to check.
-        writes.Count.ShouldBe(3);
+        // Pinned, so the test cannot pass by finding nothing to check. Three fetch branches
+        // and the precache. Counting only the branches is how the precache slipped past this
+        // test on the change that introduced it.
+        writes.Count.ShouldBe(4);
+
+        // addAll stores whatever it receives, so it cannot be guarded. The call form, not the
+        // word, because the generator explains in a comment why it does not use it.
+        worker.ShouldNotContain(".addAll(");
 
         var unguarded = writes
             .Where(x => !string.Join("\n", lines.Skip(Math.Max(0, x.index - 3)).Take(3))
@@ -218,7 +224,9 @@ public class GeneratedAssetTests
 
         worker.ShouldContain("const NAV_FALLBACK = \"/offline\"");
         install.ShouldContain("waitUntil");
-        install.ShouldContain("addAll([NAV_FALLBACK])");
+        install.ShouldContain("fetch(NAV_FALLBACK)");
+        install.ShouldContain("c.put(NAV_FALLBACK, resp)");
+        install.ShouldContain("storable(resp)");
     }
 
     [Fact]

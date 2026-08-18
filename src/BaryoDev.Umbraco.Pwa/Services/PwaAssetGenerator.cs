@@ -95,13 +95,18 @@ self.addEventListener("install", (event) => {
   // A visitor whose first offline navigation is to a page they have not opened before has
   // nothing cached under that URL, so the fallback is all that stands between them and the
   // browser's own error page. It has to be here rather than fetched on demand.
+  //
+  // Fetched and put rather than addAll. addAll stores whatever it is handed, so it would have
+  // been the one write in this worker that ignores what the server said, and it keeps the
+  // redirect flag: a redirected response cannot be replayed for a navigation, which is the
+  // failure this precache exists to prevent.
   event.waitUntil(
-    caches
-      .open(SHELL)
-      .then((c) => c.addAll([NAV_FALLBACK]))
-      // addAll rejects on a non-2xx, which is what we want for the cache and not what we want
-      // for the install: a fallback that will not fetch today must not leave the site with no
-      // service worker at all.
+    fetch(NAV_FALLBACK)
+      .then((resp) => {
+        if (!storable(resp)) return;
+        return caches.open(SHELL).then((c) => c.put(NAV_FALLBACK, resp));
+      })
+      // A fallback that will not fetch today must not leave the site with no service worker.
       .catch(() => {})
       .then(() => self.skipWaiting()),
   );
