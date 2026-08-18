@@ -155,6 +155,31 @@ Umbraco 16, 17 or 18. The package multi-targets .NET 9 and .NET 10 and NuGet pic
 lands between 16 and 17, so the two do not align and one assembly cannot span both. 15 is also
 standard-term support and past its one-year window.
 
+## Contributing
+
+Contributions are welcome, and the issue list is written to be picked up by someone who has never
+seen this code. Every issue says what is wrong, why it matters and where to start, rather than
+leaving you to work that out first.
+
+Good places to begin:
+
+- [Good first issues](https://github.com/BaryoDev/umbraco-pwa/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22),
+  which are genuinely small rather than nominally small.
+- [#18](https://github.com/BaryoDev/umbraco-pwa/issues/18) needs no C# at all. The icons and logo
+  here are developer placeholders and it shows, so a designer would move the needle further than
+  another feature would.
+- [#15](https://github.com/BaryoDev/umbraco-pwa/issues/15) and
+  [#21](https://github.com/BaryoDev/umbraco-pwa/issues/21) are the roadmap, and they explain the
+  reasoning rather than just listing features. Worth reading before picking anything up, and
+  disagreeing with either of them on the issue is a useful contribution in itself.
+
+Comment `/take` on an issue to assign yourself, or just say you are interested and we will sort it
+out. Running the whole thing locally is one command, and [CONTRIBUTING.md](CONTRIBUTING.md) has
+the rest.
+
+There is a live demo at [dev-playground.baryo.dev](https://dev-playground.baryo.dev) if you would
+rather see it work before checking anything out.
+
 ## Licence
 
 MIT.
