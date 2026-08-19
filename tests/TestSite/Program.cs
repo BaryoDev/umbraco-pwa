@@ -73,6 +73,22 @@ app.MapGet("/build-info", () =>
     });
 });
 
+// The demo page at the root, not at /demo.html.
+//
+// Every listing that sends people here (the README, the NuGet page, the Marketplace description)
+// points at the bare origin, and this site has no published content, so the root served Umbraco's
+// "Welcome to your Umbraco installation" screen. Two consequences, both silent:
+//
+//   1. Anyone following the Marketplace link saw a stock empty-Umbraco page, not the package.
+//   2. PwaOptions.NavigationFallback defaults to "/", so the service worker precached that same
+//      page as the offline fallback. The demo of "works offline" was the installer screen.
+//
+// A literal route rather than a published content node on purpose. The content lives in an
+// external Docker volume that is not in this repository, so a demo that depends on it silently
+// reverts to the installer screen the first time that volume is recreated.
+app.MapGet("/", (IWebHostEnvironment env) =>
+    Results.File(Path.Combine(env.WebRootPath, "demo.html"), "text/html; charset=utf-8"));
+
 app.UseUmbraco()
     .WithMiddleware(u =>
     {
