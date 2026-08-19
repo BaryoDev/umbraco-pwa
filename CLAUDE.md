@@ -65,6 +65,33 @@ tell a real test from a decorative one.
 Mutation-test against `origin/main` rather than against the previous commit when a fix has already
 been partly committed, or the measurement answers a different question than the one asked.
 
+### The deployed demo is tested too, and separately
+
+```bash
+sh scripts/check-live-demo.sh                      # the real site
+sh scripts/check-live-demo.sh http://127.0.0.1:5399  # a local dotnet run
+```
+
+Run by `.github/workflows/live-demo.yml` daily, on any PR touching `tests/TestSite/`, `README.md`
+or `umbraco-marketplace.json`, and on demand.
+
+It exists because the suite cannot see the deployment. The demo served Umbraco's "Welcome to your
+Umbraco installation" screen at its root through 0.1.0 and 0.2.0: the site has no published
+content, so that was a perfectly valid 200, and every listing that sends people to the demo points
+at exactly that URL. The same screen was then precached as the offline page, because
+`NavigationFallback` defaults to `/`. Nothing was broken in the code. The failure was entirely in
+what the running site returned.
+
+Two rules if you extend it:
+
+- **Every "must not contain" assertion runs only after a real body has been proven to arrive.** An
+  empty response, a 502 and a DNS failure all satisfy a negative grep. The script checks the status
+  code and a minimum byte count first, for exactly the reason a guard that refuses everything
+  passes its own negative test.
+- **Check the URL we advertise, not the one we know works.** The script greps the demo URL out of
+  `README.md` and `umbraco-marketplace.json` rather than hard-coding it. The original failure was
+  never that the demo was broken, it was that the advertised address did not reach it.
+
 ### Naming
 
 Test methods read as sentences: `An_error_response_is_never_cached`. Keep that style, it makes a
