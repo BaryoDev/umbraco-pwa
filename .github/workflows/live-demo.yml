@@ -1,0 +1,52 @@
+name: Live demo
+
+# The demo is the shop window. It is also the only part of this repository that CI could not see.
+#
+# Between 0.1.0 and 0.3.0 the deployed demo served Umbraco's "Welcome to your Umbraco installation"
+# screen at its root, because the site has no published content and nothing had ever asked what
+# that URL returned. It was a valid 200, the suite was green, and the README, the NuGet page and
+# the Marketplace description all pointed people at exactly that URL. Unit tests now cover the
+# code; they cannot cover the deployment, and the deployment is where it broke.
+#
+# So this runs against the running site, on a schedule rather than only at deploy time, because
+# the ways a demo rots (a recreated volume, an nginx change, an expired certificate, a container
+# that came back without its data) have nothing to do with anyone pushing a commit.
+
+on:
+  schedule:
+    # 06:20 UTC daily. Off the hour on purpose: the top of the hour is when GitHub's scheduler is
+    # most contended and jobs get delayed or dropped.
+    - cron: '20 6 * * *'
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Site to check'
+        required: false
+        default: 'https://dev-playground.baryo.dev'
+  # Also on any change to the demo host or to what we advertise, so a PR that breaks the landing
+  # page fails before it is merged rather than a day later.
+  pull_request:
+    paths:
+      - 'tests/TestSite/**'
+      - 'scripts/check-live-demo.sh'
+      - 'README.md'
+      - 'umbraco-marketplace.json'
+      - '.github/workflows/live-demo.yml'
+
+concurrency:
+  group: live-demo-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: The deployed demo still demonstrates the package
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the live demo
+        run: sh scripts/check-live-demo.sh "${{ inputs.base_url || 'https://dev-playground.baryo.dev' }}"
