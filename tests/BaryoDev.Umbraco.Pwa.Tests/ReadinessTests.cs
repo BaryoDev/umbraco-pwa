@@ -1,6 +1,8 @@
 using BaryoDev.Umbraco.Pwa.Models;
 using BaryoDev.Umbraco.Pwa.Services;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Options;
 using Shouldly;
 
@@ -47,6 +49,112 @@ public class ReadinessTests
             options.Manifest.Icons.Clear();
             options.Manifest.Icons.AddRange(original);
         }
+    }
+
+    private async Task<PwaReadiness> CheckRemoteWith(
+        HttpMessageHandler handler,
+        CancellationToken ct = default)
+    {
+        var options = new PwaOptions
+        {
+            Manifest = new PwaManifestOptions
+            {
+                Name = "Remote icon test",
+                StartUrl = "/demo.html",
+                Icons =
+                [
+                    new PwaIcon { Src = "https://cdn.example.test/icon.png", Sizes = "192x192" },
+                    new PwaIcon { Src = "/icon-512.png", Sizes = "512x512" },
+                ],
+            },
+        };
+
+        var service = new PwaReadinessService(
+            new StaticOptionsMonitor(options),
+            new StubHttpClientFactory(handler),
+            _site.Resolve<IWebHostEnvironment>(),
+            _site.Resolve<Umbraco.Cms.Core.Services.IDocumentUrlService>());
+
+        var context = new DefaultHttpContext();
+        context.Request.Scheme = "https";
+        context.Request.Host = new HostString("example.test");
+
+        return await service.CheckAsync(context.Request, ct);
+    }
+
+    private sealed class StaticOptionsMonitor(PwaOptions value) : IOptionsMonitor<PwaOptions>
+    {
+        public PwaOptions CurrentValue { get; } = value;
+
+        public PwaOptions Get(string? name) => CurrentValue;
+
+        public IDisposable? OnChange(Action<PwaOptions, string?> listener) => null;
+    }
+
+    private sealed class StubHttpClientFactory(HttpMessageHandler handler) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(handler, disposeHandler: false);
+    }
+
+    private sealed class StubHttpMessageHandler(
+        Func<CancellationToken, HttpResponseMessage> responseFactory) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken) =>
+            Task.FromResult(responseFactory(cancellationToken));
+    }
+
+    [Fact]
+    public async Task A_remote_icon_with_a_non_success_status_reports_the_http_status()
+    {
+        var readiness = await CheckRemoteWith(new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(System.Net.HttpStatusCode.ServiceUnavailable)));
+
+        var check = readiness.Checks.Single(c => c.Name == "Icon 192x192");
+        check.Passed.ShouldBeFalse();
+        check.Detail.ShouldContain("HTTP 503");
+    }
+
+    [Fact]
+    public async Task A_remote_icon_served_with_a_non_image_content_type_is_rejected()
+    {
+        var readiness = await CheckRemoteWith(new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent("not an image")
+                {
+                    Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("text/plain") },
+                },
+            }));
+
+        var check = readiness.Checks.Single(c => c.Name == "Icon 192x192");
+        check.Passed.ShouldBeFalse();
+        check.Detail.ShouldContain("served as text/plain, not an image");
+    }
+
+    [Fact]
+    public async Task A_remote_icon_request_exception_becomes_a_failed_check()
+    {
+        var readiness = await CheckRemoteWith(new StubHttpMessageHandler(_ =>
+            throw new InvalidOperationException("connection refused")));
+
+        var check = readiness.Checks.Single(c => c.Name == "Icon 192x192");
+        check.Passed.ShouldBeFalse();
+        check.Detail.ShouldContain("InvalidOperationException: connection refused");
+    }
+
+    [Fact]
+    public async Task Cancellation_of_a_remote_icon_request_propagates()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var serviceTask = CheckRemoteWith(
+            new StubHttpMessageHandler(ct => throw new OperationCanceledException(ct)),
+            cancellation.Token);
+
+        await Should.ThrowAsync<OperationCanceledException>(() => serviceTask);
     }
 
 
