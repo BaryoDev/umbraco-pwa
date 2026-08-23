@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Options;
 using Shouldly;
+using Umbraco.Cms.Core.Services;
 
 namespace BaryoDev.Umbraco.Pwa.Tests;
 
@@ -73,7 +74,7 @@ public class ReadinessTests
             new StaticOptionsMonitor(options),
             new StubHttpClientFactory(handler),
             _site.Resolve<IWebHostEnvironment>(),
-            _site.Resolve<Umbraco.Cms.Core.Services.IDocumentUrlService>());
+            _site.Resolve<IDocumentUrlService>());
 
         var context = new DefaultHttpContext();
         context.Request.Scheme = "https";
