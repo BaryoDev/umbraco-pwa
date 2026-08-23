@@ -4,6 +4,15 @@ Contributions are welcome, including small ones. This adds to the
 [BaryoDev-wide guide](https://github.com/BaryoDev/.github/blob/main/CONTRIBUTING.md); where the two
 disagree, this file wins.
 
+## Contributor terms
+
+There is nothing to sign. Opening a pull request means you agree to the
+[contributor terms](CLA.md), which are short and in plain English.
+
+The gist: you keep your copyright, we get permission to ship your work, and that permission is
+limited to open source licences. This package cannot be taken proprietary, because nobody has been
+asked for the rights that would allow it.
+
 ## Getting it running
 
 ```sh
