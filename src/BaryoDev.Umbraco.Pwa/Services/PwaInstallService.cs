@@ -19,11 +19,6 @@ public interface IPwaInstallService
 
 internal class PwaInstallService : IPwaInstallService
 {
-    // The read-then-insert operation must be atomic from the application's point of view. A
-    // process-local gate also keeps this independent of provider-specific duplicate-key
-    // exception types (the endpoint is deliberately best-effort and must not expose one).
-    private static readonly SemaphoreSlim ReportGate = new(1, 1);
-
     private static readonly string[] KnownDisplayModes =
         ["standalone", "minimal-ui", "fullscreen", "browser"];
 
@@ -56,34 +51,16 @@ internal class PwaInstallService : IPwaInstallService
 
         if (options.TrackInstalledOnly && !installed) return;
 
-        await ReportGate.WaitAsync(ct);
-        try
-        {
-            ReportCore(report, deviceId, displayMode, installed);
-        }
-        finally
-        {
-            ReportGate.Release();
-        }
-    }
-
-    private void ReportCore(PwaReportRequest report, string deviceId, string displayMode, bool installed)
-    {
-
         var now = DateTime.UtcNow;
 
         using var scope = _scopeProvider.CreateScope();
         var db = scope.Database;
 
-        var existing = db.FirstOrDefault<PwaInstallDto>(
-            scope.SqlContext.Sql()
-                .Select<PwaInstallDto>()
-                .From<PwaInstallDto>()
-                .Where<PwaInstallDto>(x => x.DeviceId == deviceId));
-
-        if (existing is null)
-        {
-            db.Insert(new PwaInstallDto
+        // Umbraco's helper retries the update/insert sequence around the unique constraint in a
+        // provider-independent way. The custom update keeps launch increments atomic when two
+        // application processes report the same first-seen device concurrently.
+        db.InsertOrUpdate(
+            new PwaInstallDto
             {
                 DeviceId = deviceId,
                 Platform = Platform(report.Platform),
@@ -93,25 +70,13 @@ internal class PwaInstallService : IPwaInstallService
                 LastSeenAt = now,
                 InstalledAt = installed ? now : null,
                 LaunchCount = 1,
-            });
-        }
-        else
-        {
-            existing.DisplayMode = displayMode;
-            existing.Platform = Platform(report.Platform);
-            existing.LastSeenAt = now;
-            existing.LaunchCount++;
-
-            // Installed is sticky. A user who installs the app and later opens it in a tab has
-            // still installed it, and flapping the flag would make the headline number meaningless.
-            if (installed && !existing.Installed)
-            {
-                existing.Installed = true;
-                existing.InstalledAt = now;
-            }
-
-            db.Update(existing);
-        }
+            },
+            "SET displayMode = @displayMode, platform = @platform, " +
+            "lastSeenAt = @now, launchCount = launchCount + 1, " +
+            "installed = CASE WHEN @installed = 1 THEN 1 ELSE installed END, " +
+            "installedAt = CASE WHEN @installed = 1 AND installed = 0 THEN @now ELSE installedAt END " +
+            "WHERE deviceId = @deviceId",
+            new { displayMode, platform = Platform(report.Platform), now, installed, deviceId });
 
         scope.Complete();
     }
