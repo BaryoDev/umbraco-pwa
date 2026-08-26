@@ -105,6 +105,32 @@ public class GeneratedAssetTests
         root.GetProperty("short_name").GetString().ShouldBe("Fixture");
         root.GetProperty("display").GetString().ShouldBe("standalone");
         root.GetProperty("start_url").GetString().ShouldBe("/");
+
+        // Defaults to navigate-existing
+        root.GetProperty("launch_handler").GetProperty("client_mode").GetString().ShouldBe("navigate-existing");
+    }
+
+    [Fact]
+    public void The_manifest_carries_the_configured_launch_handler()
+    {
+        var manifest = Generator(o => o.Manifest.LaunchHandler = "focus-existing").Manifest();
+
+        using var doc = JsonDocument.Parse(manifest);
+        var root = doc.RootElement;
+
+        root.TryGetProperty("launch_handler", out var handler).ShouldBeTrue();
+        handler.GetProperty("client_mode").GetString().ShouldBe("focus-existing");
+    }
+
+    [Fact]
+    public void The_manifest_omits_the_launch_handler_when_unset()
+    {
+        var manifest = Generator(o => o.Manifest.LaunchHandler = null).Manifest();
+
+        using var doc = JsonDocument.Parse(manifest);
+        var root = doc.RootElement;
+
+        root.TryGetProperty("launch_handler", out _).ShouldBeFalse();
     }
 
     [Fact]

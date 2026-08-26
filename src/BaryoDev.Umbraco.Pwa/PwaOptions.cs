@@ -95,6 +95,12 @@ public class PwaManifestOptions
     /// Without at least one 192 and one 512, Chrome will not offer to install the site.
     /// </summary>
     public List<PwaIcon> Icons { get; set; } = new();
+
+    /// <summary>
+    /// Controls whether launching the app opens a new window or focuses an existing one.
+    /// Values: "auto", "focus-existing", "navigate-existing", "navigate-new".
+    /// </summary>
+    public string? LaunchHandler { get; set; } = "navigate-existing";
 }
 
 public class PwaIcon

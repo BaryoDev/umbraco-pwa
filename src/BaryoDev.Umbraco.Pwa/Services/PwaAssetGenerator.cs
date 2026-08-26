@@ -60,6 +60,7 @@ internal class PwaAssetGenerator : IPwaAssetGenerator
             display = m.Display,
             theme_color = m.ThemeColor,
             background_color = m.BackgroundColor,
+            launch_handler = string.IsNullOrWhiteSpace(m.LaunchHandler) ? null : new { client_mode = m.LaunchHandler },
             icons = m.Icons.Select(i => new
             {
                 src = i.Src,
