@@ -27,6 +27,7 @@ public class LiveSiteFixture : IAsyncLifetime
 
     private Process? _site;
     private IPlaywright? _playwright;
+    private LocalForwardingProxy? _proxy;
 
     private void Capture(string? line)
     {
@@ -55,7 +56,7 @@ public class LiveSiteFixture : IAsyncLifetime
     public const string Fallback = "/demo.html";
 
     /// <summary>The page tests load to get the worker installed. Not the fallback.</summary>
-    public const string EntryPage = "/dashboard-preview.html";
+    public const string EntryPage = "/test-entry";
 
     public async Task InitializeAsync()
     {
@@ -66,13 +67,20 @@ public class LiveSiteFixture : IAsyncLifetime
         _site = StartSite(port);
         await WaitUntilServing();
 
+        _proxy = new LocalForwardingProxy();
+        await _proxy.StartAsync();
+
         // Idempotent, and quick when the browser is already there. Doing it here rather than in a
         // CI step keeps `dotnet test` the single command that runs the suite anywhere.
         var exit = Microsoft.Playwright.Program.Main(["install", "chromium"]);
         if (exit != 0) throw new InvalidOperationException($"Could not install chromium (exit {exit}).");
 
         _playwright = await Playwright.CreateAsync();
-        Browser = await _playwright.Chromium.LaunchAsync(new() { Headless = true });
+        Browser = await _playwright.Chromium.LaunchAsync(new()
+        {
+            Headless = true,
+            Proxy = new Proxy { Server = _proxy.Server, Bypass = string.Empty },
+        });
     }
 
     /// <summary>A page with no worker and no caches, so each test starts from a cold install.</summary>
@@ -82,6 +90,10 @@ public class LiveSiteFixture : IAsyncLifetime
         var page = await context.NewPageAsync();
         return page;
     }
+
+    public void DisableNetwork() => _proxy!.ForwardingEnabled = false;
+
+    public void EnableNetwork() => _proxy!.ForwardingEnabled = true;
 
     private Process StartSite(int port)
     {
@@ -184,6 +196,7 @@ public class LiveSiteFixture : IAsyncLifetime
     {
         if (Browser is not null) await Browser.CloseAsync();
         _playwright?.Dispose();
+        if (_proxy is not null) await _proxy.DisposeAsync();
 
         if (_site is { HasExited: false })
         {

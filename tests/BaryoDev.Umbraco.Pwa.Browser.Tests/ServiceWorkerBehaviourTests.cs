@@ -14,7 +14,7 @@ namespace BaryoDev.Umbraco.Pwa.Browser.Tests;
 [Collection(LiveSiteCollection.Name)]
 public class ServiceWorkerBehaviourTests
 {
-    private const string EntryTitle = "PWA dashboard";
+    private const string EntryTitle = "PWA for Umbraco";
     private const string FallbackTitle = "PWA for Umbraco";
 
     private readonly LiveSiteFixture _site;
@@ -133,6 +133,7 @@ public class ServiceWorkerBehaviourTests
 
     private async Task<(IPage Page, Func<Task> GoOffline)> InstalledSession()
     {
+        _site.EnableNetwork();
         var page = await _site.NewPageAsync();
 
         await page.GotoAsync(LiveSiteFixture.EntryPage);
@@ -167,17 +168,9 @@ public class ServiceWorkerBehaviourTests
         await Settle(page);
         return (page, async () =>
         {
-            // CDP network emulation applies to the browser target, including requests issued by
-            // the service worker. Page routing does not intercept those requests.
-            var cdp = await page.Context.NewCDPSessionAsync(page);
-            await cdp.SendAsync("Network.enable");
-            await cdp.SendAsync("Network.emulateNetworkConditions", new Dictionary<string, object>
-            {
-                ["offline"] = true,
-                ["latency"] = 0,
-                ["downloadThroughput"] = 0,
-                ["uploadThroughput"] = 0,
-            });
+            // The browser uses a local forwarding proxy. Disabling its upstream makes the real
+            // socket unavailable to page and service-worker requests alike.
+            _site.DisableNetwork();
         });
     }
 

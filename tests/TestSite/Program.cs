@@ -101,6 +101,9 @@ app.UseUmbraco()
         u.UseWebsiteEndpoints();
     });
 
+app.MapGet("/test-entry", (IWebHostEnvironment env) =>
+    Results.File(Path.Combine(env.WebRootPath, "demo.html"), "text/html; charset=utf-8"));
+
 await app.RunAsync();
 
 // Top-level statements generate an internal Program class. WebApplicationFactory<Program> needs it
