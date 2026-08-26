@@ -45,11 +45,11 @@ internal class PwaInstallService : IPwaInstallService
     public async Task ReportAsync(PwaReportRequest report, CancellationToken ct = default)
     {
         var options = _options.CurrentValue;
-        if (!options.TrackInstalls) return Task.CompletedTask;
+        if (!options.TrackInstalls) return;
 
         // The body is public input, so nothing from it reaches the database unvalidated.
         var deviceId = Clean(report.DeviceId, 100);
-        if (string.IsNullOrWhiteSpace(deviceId)) return Task.CompletedTask;
+        if (string.IsNullOrWhiteSpace(deviceId)) return;
 
         var displayMode = KnownDisplayModes.Contains(report.DisplayMode) ? report.DisplayMode : "browser";
         var installed = report.Installed || displayMode is "standalone" or "fullscreen";
