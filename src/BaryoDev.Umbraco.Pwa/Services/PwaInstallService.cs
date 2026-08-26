@@ -118,21 +118,32 @@ internal class PwaInstallService : IPwaInstallService
     {
         using var scope = _scopeProvider.CreateScope(autoComplete: true);
         var db = scope.Database;
-
-        var all = db.Fetch<PwaInstallDto>(
-            scope.SqlContext.Sql().Select<PwaInstallDto>().From<PwaInstallDto>());
         var cutoff = DateTime.UtcNow.AddDays(-30);
-        var installed = all.Where(x => x.Installed).ToList();
+        var all = db.ExecuteScalar<int>($"SELECT COUNT(*) FROM {PwaInstallDto.TableName}");
+        var installed = db.ExecuteScalar<int>(
+            $"SELECT COUNT(*) FROM {PwaInstallDto.TableName} WHERE installed = 1");
+        var active = db.ExecuteScalar<int>(
+            scope.SqlContext.Sql()
+                .SelectCount()
+                .From<PwaInstallDto>()
+                .Where<PwaInstallDto>(x => x.Installed && x.LastSeenAt >= cutoff));
+        var byPlatform = db.Fetch<dynamic>(
+                scope.SqlContext.Sql()
+                    .Select("platform, COUNT(*) AS count")
+                    .From<PwaInstallDto>()
+                    .Where<PwaInstallDto>(x => x.Installed)
+                    .GroupBy("platform")
+                    .OrderByDescending("count"))
+            .ToDictionary(
+                x => string.IsNullOrWhiteSpace((string?)x.platform) ? "other" : (string)x.platform,
+                x => (int)x.count);
 
         return Task.FromResult(new PwaInstallSummary
         {
-            TotalDevices = all.Count,
-            Installed = installed.Count,
-            ActiveLast30Days = installed.Count(x => x.LastSeenAt >= cutoff),
-            ByPlatform = installed
-                .GroupBy(x => string.IsNullOrWhiteSpace(x.Platform) ? "other" : x.Platform!)
-                .OrderByDescending(g => g.Count())
-                .ToDictionary(g => g.Key, g => g.Count()),
+            TotalDevices = all,
+            Installed = installed,
+            ActiveLast30Days = active,
+            ByPlatform = byPlatform,
         });
     }
 
