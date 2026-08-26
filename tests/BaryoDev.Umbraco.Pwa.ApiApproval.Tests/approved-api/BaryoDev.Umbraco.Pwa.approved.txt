@@ -121,6 +121,7 @@ namespace BaryoDev.Umbraco.Pwa
         public string? Description { get; set; }
         public string Display { get; set; }
         public System.Collections.Generic.List<BaryoDev.Umbraco.Pwa.PwaIcon> Icons { get; set; }
+        public string? LaunchHandler { get; set; }
         public string? Name { get; set; }
         public string? ShortName { get; set; }
         public string StartUrl { get; set; }

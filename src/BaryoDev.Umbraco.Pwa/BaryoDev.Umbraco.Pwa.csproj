@@ -21,7 +21,7 @@
 
   <PropertyGroup>
     <PackageId>BaryoDev.Umbraco.Pwa</PackageId>
-    <Version>0.3.0</Version>
+    <Version>0.4.0</Version>
     <Authors>BaryoDev</Authors>
     <Title>PWA for Umbraco</Title>
     <Description>Turn an Umbraco site into an installable, offline-capable app, and see who installed it from the backoffice. Install prompt for Android and iOS, a network-first service worker, and install tracking that stays in your own database rather than a third-party dashboard.</Description>
