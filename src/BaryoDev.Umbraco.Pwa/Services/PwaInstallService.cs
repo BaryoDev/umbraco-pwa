@@ -19,6 +19,11 @@ public interface IPwaInstallService
 
 internal class PwaInstallService : IPwaInstallService
 {
+    // The read-then-insert operation must be atomic from the application's point of view. A
+    // process-local gate also keeps this independent of provider-specific duplicate-key
+    // exception types (the endpoint is deliberately best-effort and must not expose one).
+    private static readonly SemaphoreSlim ReportGate = new(1, 1);
+
     private static readonly string[] KnownDisplayModes =
         ["standalone", "minimal-ui", "fullscreen", "browser"];
 
@@ -37,7 +42,7 @@ internal class PwaInstallService : IPwaInstallService
         _options = options;
     }
 
-    public Task ReportAsync(PwaReportRequest report, CancellationToken ct = default)
+    public async Task ReportAsync(PwaReportRequest report, CancellationToken ct = default)
     {
         var options = _options.CurrentValue;
         if (!options.TrackInstalls) return Task.CompletedTask;
@@ -49,7 +54,21 @@ internal class PwaInstallService : IPwaInstallService
         var displayMode = KnownDisplayModes.Contains(report.DisplayMode) ? report.DisplayMode : "browser";
         var installed = report.Installed || displayMode is "standalone" or "fullscreen";
 
-        if (options.TrackInstalledOnly && !installed) return Task.CompletedTask;
+        if (options.TrackInstalledOnly && !installed) return;
+
+        await ReportGate.WaitAsync(ct);
+        try
+        {
+            ReportCore(report, deviceId, displayMode, installed);
+        }
+        finally
+        {
+            ReportGate.Release();
+        }
+    }
+
+    private void ReportCore(PwaReportRequest report, string deviceId, string displayMode, bool installed)
+    {
 
         var now = DateTime.UtcNow;
 
@@ -95,7 +114,6 @@ internal class PwaInstallService : IPwaInstallService
         }
 
         scope.Complete();
-        return Task.CompletedTask;
     }
 
     public Task<IReadOnlyList<PwaInstallModel>> GetAllAsync(bool installedOnly, CancellationToken ct = default)

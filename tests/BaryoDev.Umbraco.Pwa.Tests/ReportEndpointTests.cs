@@ -65,6 +65,22 @@ public class ReportEndpointTests
     }
 
     [Fact]
+    public async Task Concurrent_first_reports_create_one_row_and_keep_both_launches()
+    {
+        var id = $"race-{Guid.NewGuid():N}";
+
+        var responses = await Task.WhenAll(
+            _site.ReportAsync(Report(id)),
+            _site.ReportAsync(Report(id)));
+
+        responses.ShouldAllBe(response => response.StatusCode == HttpStatusCode.Accepted);
+        var row = await Find(id);
+        row.ShouldNotBeNull();
+        row!.LaunchCount.ShouldBe(2);
+        (await _installs.GetAllAsync(installedOnly: false)).Count(x => x.DeviceId == id).ShouldBe(1);
+    }
+
+    [Fact]
     public async Task Installed_is_sticky_once_set()
     {
         // Someone installs the app, then later opens the site in an ordinary tab. They have still
