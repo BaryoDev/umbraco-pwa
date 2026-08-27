@@ -106,8 +106,50 @@ public class GeneratedAssetTests
         root.GetProperty("display").GetString().ShouldBe("standalone");
         root.GetProperty("start_url").GetString().ShouldBe("/");
 
-        // Defaults to navigate-existing
-        root.GetProperty("launch_handler").GetProperty("client_mode").GetString().ShouldBe("navigate-existing");
+        // No launch_handler unless a site asks for one, so upgrading does not change how an
+        // already-installed app launches.
+        root.TryGetProperty("launch_handler", out _).ShouldBeFalse();
+    }
+
+    /// <summary>
+    /// A value the spec does not define is left out rather than written through.
+    /// </summary>
+    /// <remarks>
+    /// A browser ignores a launch_handler it cannot parse, so an emitted typo behaves exactly like
+    /// the feature working: no error, no effect, nothing to notice. Dropping it keeps the manifest
+    /// valid, and the site owner sees the same nothing either way, but the manifest stays correct
+    /// for every other tool that reads it.
+    /// </remarks>
+    [Theory]
+    [InlineData("navigate_existing")]  // underscore rather than hyphen
+    [InlineData("focus existing")]
+    [InlineData("nonsense")]
+    [InlineData("   ")]
+    public void An_unrecognised_launch_handler_is_left_out(string value)
+    {
+        var manifest = Generator(o => o.Manifest.LaunchHandler = value).Manifest();
+
+        using var doc = JsonDocument.Parse(manifest);
+        doc.RootElement.TryGetProperty("launch_handler", out _).ShouldBeFalse();
+    }
+
+    /// <summary>
+    /// The positive control for the theory above. Without it, dropping every value would pass.
+    /// </summary>
+    [Theory]
+    [InlineData("auto")]
+    [InlineData("focus-existing")]
+    [InlineData("navigate-existing")]
+    [InlineData("navigate-new")]
+    [InlineData("NAVIGATE-EXISTING")]  // case and surrounding space are tolerated
+    [InlineData("  navigate-new  ")]
+    public void Every_client_mode_the_spec_defines_is_written_through(string value)
+    {
+        var manifest = Generator(o => o.Manifest.LaunchHandler = value).Manifest();
+
+        using var doc = JsonDocument.Parse(manifest);
+        doc.RootElement.GetProperty("launch_handler").GetProperty("client_mode")
+            .GetString().ShouldBe(value.Trim().ToLowerInvariant());
     }
 
     [Fact]

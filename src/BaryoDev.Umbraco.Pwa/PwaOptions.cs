@@ -98,9 +98,16 @@ public class PwaManifestOptions
 
     /// <summary>
     /// Controls whether launching the app opens a new window or focuses an existing one.
-    /// Values: "auto", "focus-existing", "navigate-existing", "navigate-new".
+    /// One of "auto", "focus-existing", "navigate-existing" or "navigate-new". An unrecognised
+    /// value is ignored and the key is left out of the manifest.
     /// </summary>
-    public string? LaunchHandler { get; set; } = "navigate-existing";
+    /// <remarks>
+    /// Null by default, so the key is omitted and browsers keep doing whatever they did before.
+    /// "navigate-existing" is the setting most app-like sites want, since the browser default opens
+    /// a fresh window on every launch, but choosing it here would change behaviour for every site
+    /// upgrading from 0.3.0 without anyone asking for it.
+    /// </remarks>
+    public string? LaunchHandler { get; set; }
 }
 
 public class PwaIcon

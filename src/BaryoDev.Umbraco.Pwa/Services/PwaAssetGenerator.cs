@@ -35,6 +35,22 @@ public interface IPwaAssetGenerator
 /// </summary>
 internal class PwaAssetGenerator : IPwaAssetGenerator
 {
+    /// <summary>
+    /// The client modes the spec defines. Anything else is dropped rather than written out, because
+    /// a browser silently ignores a launch_handler it cannot parse, so a typo would otherwise look
+    /// exactly like the feature working.
+    /// </summary>
+    private static readonly string[] KnownLaunchHandlers =
+        ["auto", "focus-existing", "navigate-existing", "navigate-new"];
+
+    private static object? LaunchHandler(string? value)
+    {
+        var cleaned = value?.Trim().ToLowerInvariant();
+        return cleaned is not null && KnownLaunchHandlers.Contains(cleaned)
+            ? new { client_mode = cleaned }
+            : null;
+    }
+
     private static readonly JsonSerializerOptions Json = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -60,7 +76,7 @@ internal class PwaAssetGenerator : IPwaAssetGenerator
             display = m.Display,
             theme_color = m.ThemeColor,
             background_color = m.BackgroundColor,
-            launch_handler = string.IsNullOrWhiteSpace(m.LaunchHandler) ? null : new { client_mode = m.LaunchHandler },
+            launch_handler = LaunchHandler(m.LaunchHandler),
             icons = m.Icons.Select(i => new
             {
                 src = i.Src,
