@@ -9,6 +9,41 @@ gets a migration note here. The `.approved.txt` files in
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-27
+
+### Added
+
+- **`launch_handler` in the manifest.** Controls whether launching the installed app opens a new
+  window or navigates one that is already open. Off unless configured: the key is omitted by
+  default, so upgrading from 0.3.0 changes nothing on its own. A value the spec does not define is
+  dropped rather than written out, because a browser silently ignores a `launch_handler` it cannot
+  parse and an emitted typo would behave exactly like the feature working. ([#71])
+
+### Changed
+
+- **The dashboard summary is aggregated in the database** rather than by fetching every row and
+  counting in memory. ([#75])
+
+### Fixed
+
+- **Concurrent first reports for the same device no longer race into duplicate rows.** The previous
+  read-then-write pair could interleave across application processes. ([#76])
+
+### Testing
+
+None of this changes what the package does, and all of it changes what a green suite means.
+
+- **The dashboard is now driven in a real browser.** The XSS regression test it replaces asserted
+  that `dashboard.js` *contained the string* `escapeHtml(...)`, which is a claim about source text
+  rather than behaviour and would have kept passing with the escaping applied to the wrong value.
+  The replacement renders hostile values and asserts no element and no handler is created. ([#73])
+- **Offline behaviour runs through a local forwarding proxy**, so disabling it takes the network
+  away from the page and the service worker alike. The fallback test has a mirror that empties the
+  caches and proves the navigation fails, which is what keeps the first one honest. ([#78])
+- Startup handler guards and configuration switches covered. ([#72], [#74])
+- Two suites had been sharing one page constant with opposite requirements, which turned `main` red
+  after two individually green pull requests merged. ([#79])
+
 ## [0.3.0] - 2026-08-18
 
 ### Added
@@ -123,3 +158,11 @@ First release.
 [#32]: https://github.com/BaryoDev/umbraco-pwa/issues/32
 [#41]: https://github.com/BaryoDev/umbraco-pwa/pull/41
 [#42]: https://github.com/BaryoDev/umbraco-pwa/pull/42
+[#71]: https://github.com/BaryoDev/umbraco-pwa/pull/71
+[#72]: https://github.com/BaryoDev/umbraco-pwa/pull/72
+[#73]: https://github.com/BaryoDev/umbraco-pwa/pull/73
+[#74]: https://github.com/BaryoDev/umbraco-pwa/pull/74
+[#75]: https://github.com/BaryoDev/umbraco-pwa/pull/75
+[#76]: https://github.com/BaryoDev/umbraco-pwa/pull/76
+[#78]: https://github.com/BaryoDev/umbraco-pwa/pull/78
+[#79]: https://github.com/BaryoDev/umbraco-pwa/pull/79
