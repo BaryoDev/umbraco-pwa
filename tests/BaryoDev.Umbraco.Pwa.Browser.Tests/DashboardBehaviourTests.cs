@@ -157,7 +157,7 @@ public class DashboardBehaviourTests
         await page.RouteAsync(
             "**/umbraco/management/api/v1/baryodev/pwa/**",
             route => Respond(route, responses));
-        await page.GotoAsync(LiveSiteFixture.EntryPage);
+        await page.GotoAsync(LiveSiteFixture.DashboardPage);
 
         if (waitForResponses)
         {
