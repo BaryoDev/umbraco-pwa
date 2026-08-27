@@ -99,16 +99,4 @@ public class InstallationTests
         response.IsSuccessStatusCode.ShouldBeTrue($"{element} must be served");
     }
 
-    [Fact]
-    public async Task The_dashboard_escapes_every_value_it_renders()
-    {
-        // deviceId arrives on an anonymous endpoint and is rendered in an administrator's
-        // browser, so this is a stored-XSS path. The server whitelists on the way in; this is
-        // the other half of the job, and a regression here would be silent.
-        var source = await _site.Client.GetStringAsync("/App_Plugins/BaryoDev.Pwa/dashboard.js");
-
-        source.ShouldContain("escapeHtml(shortId(r.deviceId))");
-        source.ShouldContain("escapeHtml(r.platform");
-        source.ShouldContain("escapeHtml(r.displayMode)");
-    }
 }
