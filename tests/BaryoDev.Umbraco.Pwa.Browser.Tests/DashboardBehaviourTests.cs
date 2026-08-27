@@ -73,7 +73,7 @@ public class DashboardBehaviourTests
 
         (await row.Locator("img, svg, b, script, iframe").CountAsync()).ShouldBe(0);
         (await row.Locator("td").CountAsync()).ShouldBe(7);
-        (await page.EvaluateAsync<bool>("() => window.__xss === true")).ShouldBeFalse();
+        (await page.EvaluateAsync<bool>("() => window.__xss === undefined")).ShouldBeTrue();
         (await row.InnerTextAsync()).ShouldContain("<svg onload=window.__xss=2>");
         (await row.InnerTextAsync()).ShouldContain("<b title='x'>markup</b>");
     }
