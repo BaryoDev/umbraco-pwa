@@ -58,6 +58,13 @@ public class LiveSiteFixture : IAsyncLifetime
     /// <summary>The page tests load to get the worker installed. Not the fallback.</summary>
     public const string EntryPage = "/test-entry";
 
+    /// <summary>
+    /// The page hosting the dashboard element. Deliberately separate from <see cref="EntryPage"/>:
+    /// that one exists to be a navigation target the service worker has never seen, so pointing the
+    /// dashboard tests at it too would couple two suites with opposite requirements to one constant.
+    /// </summary>
+    public const string DashboardPage = "/dashboard-preview.html";
+
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_dataDirectory);
