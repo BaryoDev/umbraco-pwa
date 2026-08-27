@@ -14,18 +14,7 @@ namespace BaryoDev.Umbraco.Pwa.Browser.Tests;
 [Collection(LiveSiteCollection.Name)]
 public class ServiceWorkerBehaviourTests
 {
-    // Two tests below are skipped rather than deleted, and the reason is worth knowing before
-    // anyone tries again. Making the browser offline does not make the worker offline:
-    // context.SetOfflineAsync, a route added after install, and a route added before install and
-    // flipped later were all tried, and every time the worker's own fetch reached the server and
-    // Umbraco answered the navigation. The negative control is what caught it, by expecting the
-    // navigation to fail and watching it succeed.
-    //
-    // What is left to try is a local proxy the context is pointed at and which the test can stop,
-    // since that removes the network rather than asking the browser to pretend. Tracked in #40.
-    // Until then the precache is proven by reading the cache, which is the part of the behaviour
-    // this package actually changed.
-    private const string EntryTitle = "PWA dashboard";
+    private const string EntryTitle = "PWA for Umbraco";
     private const string FallbackTitle = "PWA for Umbraco";
 
     private readonly LiveSiteFixture _site;
@@ -56,7 +45,7 @@ public class ServiceWorkerBehaviourTests
         page.Url.ShouldNotContain(LiveSiteFixture.Fallback);
     }
 
-    [Fact(Skip = "Playwright cannot cut the network for a service worker fetch. See #40.")]
+    [Fact]
     public async Task An_offline_navigation_to_a_page_never_visited_serves_the_fallback()
     {
         // The claim the package leads with, asserted end to end rather than inferred from the
@@ -73,7 +62,7 @@ public class ServiceWorkerBehaviourTests
         (await page.TitleAsync()).ShouldBe(FallbackTitle);
     }
 
-    [Fact(Skip = "Playwright cannot cut the network for a service worker fetch. See #40.")]
+    [Fact]
     public async Task An_offline_navigation_fails_honestly_when_nothing_was_precached()
     {
         // The mirror of the test above, and the reason the precache is load-bearing: with the
@@ -144,18 +133,8 @@ public class ServiceWorkerBehaviourTests
 
     private async Task<(IPage Page, Func<Task> GoOffline)> InstalledSession()
     {
+        _site.EnableNetwork();
         var page = await _site.NewPageAsync();
-
-        // Registered before the worker exists, and inert until the flag flips. Playwright does not
-        // apply a route to a service worker that was already running when the route was added,
-        // which is why SetOfflineAsync and a late route both left the network reachable and the
-        // negative-control test passed when it should have failed.
-        var offline = new bool[1];
-        await page.Context.RouteAsync("**/*", async route =>
-        {
-            if (offline[0]) await route.AbortAsync("internetdisconnected");
-            else await route.ContinueAsync();
-        });
 
         await page.GotoAsync(LiveSiteFixture.EntryPage);
 
@@ -187,7 +166,12 @@ public class ServiceWorkerBehaviourTests
         }");
 
         await Settle(page);
-        return (page, () => { offline[0] = true; return Task.CompletedTask; });
+        return (page, async () =>
+        {
+            // The browser uses a local forwarding proxy. Disabling its upstream makes the real
+            // socket unavailable to page and service-worker requests alike.
+            _site.DisableNetwork();
+        });
     }
 
     /// <summary>Cache writes are fire and forget inside the worker, so give them a moment.</summary>
