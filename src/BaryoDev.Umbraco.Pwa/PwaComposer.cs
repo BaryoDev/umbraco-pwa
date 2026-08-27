@@ -11,6 +11,7 @@ using Umbraco.Cms.Core.Notifications;
 using Umbraco.Cms.Core.Scoping;
 using Umbraco.Cms.Core.Services;
 using Umbraco.Cms.Infrastructure.Migrations.Upgrade;
+using Umbraco.Extensions;
 
 namespace BaryoDev.Umbraco.Pwa;
 
@@ -26,6 +27,7 @@ public class PwaComposer : IComposer
             .Bind(builder.Config.GetSection(PwaOptions.SectionName));
 
         builder.Services.AddSingleton<IPwaInstallService, PwaInstallService>();
+        builder.Services.AddRecurringBackgroundJob<PwaInstallRetentionJob>();
         builder.Services.AddSingleton<IPwaAssetGenerator, PwaAssetGenerator>();
 
         builder.Services.AddSingleton<PwaReadinessService>();
