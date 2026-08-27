@@ -37,34 +37,30 @@ internal class PwaInstallService : IPwaInstallService
         _options = options;
     }
 
-    public Task ReportAsync(PwaReportRequest report, CancellationToken ct = default)
+    public async Task ReportAsync(PwaReportRequest report, CancellationToken ct = default)
     {
         var options = _options.CurrentValue;
-        if (!options.TrackInstalls) return Task.CompletedTask;
+        if (!options.TrackInstalls) return;
 
         // The body is public input, so nothing from it reaches the database unvalidated.
         var deviceId = Clean(report.DeviceId, 100);
-        if (string.IsNullOrWhiteSpace(deviceId)) return Task.CompletedTask;
+        if (string.IsNullOrWhiteSpace(deviceId)) return;
 
         var displayMode = KnownDisplayModes.Contains(report.DisplayMode) ? report.DisplayMode : "browser";
         var installed = report.Installed || displayMode is "standalone" or "fullscreen";
 
-        if (options.TrackInstalledOnly && !installed) return Task.CompletedTask;
+        if (options.TrackInstalledOnly && !installed) return;
 
         var now = DateTime.UtcNow;
 
         using var scope = _scopeProvider.CreateScope();
         var db = scope.Database;
 
-        var existing = db.FirstOrDefault<PwaInstallDto>(
-            scope.SqlContext.Sql()
-                .Select<PwaInstallDto>()
-                .From<PwaInstallDto>()
-                .Where<PwaInstallDto>(x => x.DeviceId == deviceId));
-
-        if (existing is null)
-        {
-            db.Insert(new PwaInstallDto
+        // Umbraco's helper retries the update/insert sequence around the unique constraint in a
+        // provider-independent way. The custom update keeps launch increments atomic when two
+        // application processes report the same first-seen device concurrently.
+        db.InsertOrUpdate(
+            new PwaInstallDto
             {
                 DeviceId = deviceId,
                 Platform = Platform(report.Platform),
@@ -74,28 +70,15 @@ internal class PwaInstallService : IPwaInstallService
                 LastSeenAt = now,
                 InstalledAt = installed ? now : null,
                 LaunchCount = 1,
-            });
-        }
-        else
-        {
-            existing.DisplayMode = displayMode;
-            existing.Platform = Platform(report.Platform);
-            existing.LastSeenAt = now;
-            existing.LaunchCount++;
-
-            // Installed is sticky. A user who installs the app and later opens it in a tab has
-            // still installed it, and flapping the flag would make the headline number meaningless.
-            if (installed && !existing.Installed)
-            {
-                existing.Installed = true;
-                existing.InstalledAt = now;
-            }
-
-            db.Update(existing);
-        }
+            },
+            "SET displayMode = @displayMode, platform = @platform, " +
+            "lastSeenAt = @now, launchCount = launchCount + 1, " +
+            "installed = CASE WHEN @installed = 1 THEN 1 ELSE installed END, " +
+            "installedAt = CASE WHEN @installed = 1 AND installed = 0 THEN @now ELSE installedAt END " +
+            "WHERE deviceId = @deviceId",
+            new { displayMode, platform = Platform(report.Platform), now, installed, deviceId });
 
         scope.Complete();
-        return Task.CompletedTask;
     }
 
     public Task<IReadOnlyList<PwaInstallModel>> GetAllAsync(bool installedOnly, CancellationToken ct = default)
