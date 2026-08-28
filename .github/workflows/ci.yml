@@ -133,6 +133,17 @@ jobs:
           echo "total=$TOTAL passed=$PASSED"
           test "${TOTAL:-0}" -ge 50 || { echo "expected at least 50 tests, got ${TOTAL:-0}"; exit 1; }
           test "$TOTAL" = "$PASSED" || { echo "not every test passed"; exit 1; }
+          # --collect silently produces nothing if the collector is missing, and a
+          # coverage step that cannot fail is the pattern #56 exists to avoid.
+          COV=$(find "${{ github.workspace }}/testresults" -name 'coverage.cobertura.xml' | head -1)
+          test -n "$COV" || { echo "no coverage report produced"; exit 1; }
+
+      # The report is the point: without this the coverage files die with the runner.
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.umbraco }}
+          path: ${{ github.workspace }}/testresults/**/coverage.cobertura.xml
 
       - name: Verify the framework under test
         run: |
