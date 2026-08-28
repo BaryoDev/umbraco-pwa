@@ -1,6 +1,8 @@
 using System.Net;
+using BaryoDev.Umbraco.Pwa.Persistence;
 using BaryoDev.Umbraco.Pwa.Services;
 using Shouldly;
+using Umbraco.Cms.Infrastructure.Scoping;
 
 namespace BaryoDev.Umbraco.Pwa.Tests;
 
@@ -121,6 +123,42 @@ public class SummaryTests
 
         after.ByPlatform.GetValueOrDefault("linux").ShouldBe(linuxBefore,
             "a browser-only device has not installed anything");
+    }
+
+    [Fact]
+    public async Task Null_platform_rows_share_the_other_bucket()
+    {
+        var scopeProvider = _site.Resolve<IScopeProvider>();
+        var now = DateTime.UtcNow;
+        using (var scope = scopeProvider.CreateScope(autoComplete: true))
+        {
+            scope.Database.Insert(new PwaInstallDto
+            {
+                DeviceId = $"null-platform-{Guid.NewGuid():N}",
+                Platform = null,
+                DisplayMode = "standalone",
+                Installed = true,
+                FirstSeenAt = now,
+                LastSeenAt = now,
+                InstalledAt = now,
+                LaunchCount = 1,
+            });
+            scope.Database.Insert(new PwaInstallDto
+            {
+                DeviceId = $"other-platform-{Guid.NewGuid():N}",
+                Platform = "other",
+                DisplayMode = "standalone",
+                Installed = true,
+                FirstSeenAt = now,
+                LastSeenAt = now,
+                InstalledAt = now,
+                LaunchCount = 1,
+            });
+        }
+
+        var summary = await _installs.GetSummaryAsync();
+
+        summary.ByPlatform.GetValueOrDefault("other").ShouldBeGreaterThan(1);
     }
 
     [Fact]

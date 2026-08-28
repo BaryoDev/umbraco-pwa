@@ -112,10 +112,10 @@ internal class PwaInstallService : IPwaInstallService
                 .Where<PwaInstallDto>(x => x.Installed && x.LastSeenAt >= cutoff));
         var byPlatform = db.Fetch<dynamic>(
                 scope.SqlContext.Sql()
-                    .Select("platform, COUNT(*) AS count")
+                    .Select("COALESCE(NULLIF(TRIM(platform), ''), 'other') AS platform, COUNT(*) AS count")
                     .From<PwaInstallDto>()
                     .Where<PwaInstallDto>(x => x.Installed)
-                    .GroupBy("platform")
+                    .GroupBy("COALESCE(NULLIF(TRIM(platform), ''), 'other')")
                     .OrderByDescending("count"))
             .ToDictionary(
                 x => string.IsNullOrWhiteSpace((string?)x.platform) ? "other" : (string)x.platform,
