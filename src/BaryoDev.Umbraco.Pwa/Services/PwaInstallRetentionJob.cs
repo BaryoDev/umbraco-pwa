@@ -39,7 +39,10 @@ internal class PwaInstallRetentionJob : IRecurringBackgroundJob
 
     public TimeSpan IgnoredDelay { get; } = TimeSpan.FromMinutes(1);
 
-    public ServerRole[] ServerRoles { get; } = Enum.GetValues<ServerRole>();
+    // Single and SchedulingPublisher, matching Umbraco's own default for recurring
+    // jobs. Running on every role would have each subscriber in a load-balanced
+    // fleet issue the same daily DELETE.
+    public ServerRole[] ServerRoles { get; } = [ServerRole.Single, ServerRole.SchedulingPublisher];
 
     public event EventHandler? PeriodChanged;
 
