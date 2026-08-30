@@ -118,6 +118,81 @@ public class ServiceWorkerBehaviourTests
         (await CacheKeys(page)).ShouldNotContain(k => k.StartsWith("/umbraco/"));
     }
 
+    [Fact]
+    public async Task A_successful_api_response_is_returned_live_and_cached()
+    {
+        var page = await Installed();
+
+        var body = await page.EvaluateAsync<string>($"async () => await (await fetch('{LiveSiteFixture.ApiRoute}')).text()");
+        await Settle(page);
+
+        body.ShouldContain("live-api");
+        (await CacheKeys(page)).ShouldContain(LiveSiteFixture.ApiRoute);
+    }
+
+    [Fact]
+    public async Task An_offline_api_request_serves_its_cached_response()
+    {
+        var (page, goOffline) = await InstalledSession();
+        var online = await page.EvaluateAsync<string>($"async () => await (await fetch('{LiveSiteFixture.ApiRoute}')).text()");
+        await Settle(page);
+
+        await goOffline();
+        var offline = await page.EvaluateAsync<string>($"async () => await (await fetch('{LiveSiteFixture.ApiRoute}')).text()");
+
+        online.ShouldContain("live-api");
+        offline.ShouldBe(online);
+    }
+
+    [Fact]
+    public async Task An_offline_api_request_without_a_cached_response_returns_the_documented_503()
+    {
+        var (page, goOffline) = await InstalledSession();
+        var missing = $"/api/no-cache-{Guid.NewGuid():N}";
+
+        await goOffline();
+        var result = await page.EvaluateAsync<string>($"async () => {{ const r = await fetch('{missing}'); return JSON.stringify({{ status: r.status, body: await r.json() }}); }}");
+        var json = System.Text.Json.JsonDocument.Parse(result);
+
+        json.RootElement.GetProperty("status").GetInt32().ShouldBe(503);
+        json.RootElement.GetProperty("body").GetProperty("offline").GetBoolean().ShouldBeTrue();
+        (await CacheKeys(page)).ShouldContain(LiveSiteFixture.Fallback);
+    }
+
+    [Fact]
+    public async Task Clearing_api_cache_preserves_the_shell_cache()
+    {
+        var page = await Installed();
+        await page.EvaluateAsync($"async () => {{ await fetch('{LiveSiteFixture.ApiRoute}'); }}");
+        await Settle(page);
+        (await CacheKeys(page)).ShouldContain(LiveSiteFixture.ApiRoute);
+        (await CacheNames(page)).ShouldContain(LiveSiteFixture.ShellCache);
+
+        await page.EvaluateAsync("async () => navigator.serviceWorker.controller.postMessage('clear-api-cache')");
+        await Settle(page);
+
+        (await CacheNames(page)).ShouldNotContain(LiveSiteFixture.ApiCache);
+        (await CacheNames(page)).ShouldContain(LiveSiteFixture.ShellCache);
+        (await CacheKeys(page)).ShouldContain(LiveSiteFixture.Fallback);
+    }
+
+    [Fact]
+    public async Task Activation_purges_stale_caches_and_preserves_current_shell_and_api_caches()
+    {
+        _site.EnableNetwork();
+        var page = await _site.NewPageAsync();
+        await page.GotoAsync(LiveSiteFixture.EntryPage);
+        await page.EvaluateAsync($"async () => {{ for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); for (const k of await caches.keys()) await caches.delete(k); await caches.open('stale-build').then(c => c.put('/stale', new Response('stale'))); await caches.open('{LiveSiteFixture.ShellCache}').then(c => c.put('/shell-control', new Response('shell'))); await caches.open('{LiveSiteFixture.ApiCache}').then(c => c.put('{LiveSiteFixture.ApiRoute}', new Response('api'))); }}");
+
+        await page.ReloadAsync();
+        await page.EvaluateAsync("async () => { await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready; }");
+        await Settle(page);
+
+        (await CacheNames(page)).ShouldNotContain("stale-build");
+        (await CacheNames(page)).ShouldContain(LiveSiteFixture.ShellCache);
+        (await CacheNames(page)).ShouldContain(LiveSiteFixture.ApiCache);
+    }
+
     /// <summary>A page with the worker installed and activated, from a cold start every time.</summary>
     /// <remarks>
     /// The worker is registered here rather than by loading a page that ships the client script.
@@ -186,5 +261,8 @@ public class ServiceWorkerBehaviourTests
             }
             return out;
         }");
+
+    private static async Task<IReadOnlyList<string>> CacheNames(IPage page) =>
+        await page.EvaluateAsync<string[]>("async () => await caches.keys()");
 
 }

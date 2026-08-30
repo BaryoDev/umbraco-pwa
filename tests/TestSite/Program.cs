@@ -104,6 +104,8 @@ app.UseUmbraco()
 app.MapGet("/test-entry", (IWebHostEnvironment env) =>
     Results.File(Path.Combine(env.WebRootPath, "demo.html"), "text/html; charset=utf-8"));
 
+app.MapGet("/api/browser-test", () => Results.Json(new { source = "live-api" }));
+
 await app.RunAsync();
 
 // Top-level statements generate an internal Program class. WebApplicationFactory<Program> needs it

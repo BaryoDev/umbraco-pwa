@@ -52,6 +52,10 @@ public class LiveSiteFixture : IAsyncLifetime
     /// <summary>The cache the worker is configured to use, so a test can look inside it.</summary>
     public const string ShellCache = "browsertest-shell-bt1";
 
+    public const string ApiCache = "browsertest-api-bt1";
+
+    public const string ApiRoute = "/api/browser-test";
+
     /// <summary>What the worker falls back to offline. Never navigated to by any test.</summary>
     public const string Fallback = "/demo.html";
 
