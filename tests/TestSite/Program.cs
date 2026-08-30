@@ -73,6 +73,18 @@ app.MapGet("/build-info", () =>
     });
 });
 
+app.MapGet("/cache-control-no-store", (HttpResponse response) =>
+{
+    response.Headers.CacheControl = "no-store";
+    return Results.Text("no-store response");
+});
+
+app.MapGet("/cache-control-private", (HttpResponse response) =>
+{
+    response.Headers.CacheControl = "private";
+    return Results.Text("private response");
+});
+
 // The demo page at the root, not at /demo.html.
 //
 // Every listing that sends people here (the README, the NuGet page, the Marketplace description)
