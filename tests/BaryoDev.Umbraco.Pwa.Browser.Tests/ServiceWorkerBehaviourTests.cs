@@ -46,6 +46,21 @@ public class ServiceWorkerBehaviourTests
     }
 
     [Fact]
+    public async Task A_redirecting_fallback_is_cached_as_a_replayable_response()
+    {
+        var page = await Installed();
+
+        var result = await page.EvaluateAsync<string>($@"async () => {{
+            const response = await caches.match('{LiveSiteFixture.Fallback}');
+            return JSON.stringify({{ redirected: response.redirected, body: await response.text() }});
+        }}");
+        var json = System.Text.Json.JsonDocument.Parse(result);
+
+        json.RootElement.GetProperty("redirected").GetBoolean().ShouldBeFalse();
+        json.RootElement.GetProperty("body").GetString().ShouldContain("PWA for Umbraco");
+    }
+
+    [Fact]
     public async Task An_offline_navigation_to_a_page_never_visited_serves_the_fallback()
     {
         // The claim the package leads with, asserted end to end rather than inferred from the

@@ -59,7 +59,7 @@ public class LiveSiteFixture : IAsyncLifetime
     public const string ApiRoute = "/api/browser-test";
 
     /// <summary>What the worker falls back to offline. Never navigated to by any test.</summary>
-    public const string Fallback = "/demo.html";
+    public const string Fallback = "/redirecting-fallback";
 
     /// <summary>The page tests load to get the worker installed. Not the fallback.</summary>
     public const string EntryPage = "/test-entry";

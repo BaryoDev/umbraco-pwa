@@ -117,6 +117,7 @@ app.MapGet("/test-entry", (IWebHostEnvironment env) =>
     Results.File(Path.Combine(env.WebRootPath, "demo.html"), "text/html; charset=utf-8"));
 
 app.MapGet("/api/browser-test", () => Results.Json(new { source = "live-api" }));
+app.MapGet("/redirecting-fallback", () => Results.Redirect("/demo.html"));
 
 await app.RunAsync();
 

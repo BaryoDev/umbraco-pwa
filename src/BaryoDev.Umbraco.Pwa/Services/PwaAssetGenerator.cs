@@ -119,7 +119,22 @@ self.addEventListener("install", (event) => {
   // failure this precache exists to prevent.
   event.waitUntil(
     fetch(NAV_FALLBACK)
-      .then((resp) => {
+      .then(async (resp) => {
+        // A redirected response cannot be replayed for a navigation under the source URL. Keep
+        // that safety rule, but cache an equivalent response whose body and metadata came from the
+        // final target, without the redirect flag.
+        if (resp.redirected) {
+          const headers = new Headers(resp.headers);
+          // Fetch exposes the decoded body, so these wire-level headers would describe bytes that
+          // are no longer in the reconstructed response and can make Cache.put reject it.
+          headers.delete("Content-Encoding");
+          headers.delete("Content-Length");
+          resp = new Response(await resp.arrayBuffer(), {
+            status: resp.status,
+            statusText: resp.statusText,
+            headers,
+          });
+        }
         if (!storable(resp)) return;
         return caches.open(SHELL).then((c) => c.put(NAV_FALLBACK, resp));
       })
@@ -132,7 +147,11 @@ self.addEventListener("install", (event) => {
 // The Cache Storage API stores whatever it is handed and enforces no HTTP semantics of its own,
 // so every rule the browser's own cache would apply has to be applied here instead.
 function storable(resp) {
-  if (!resp.ok || resp.type !== "basic") return false;
+  // The redirect-repair response is constructed locally, so browsers report its type as
+  // "default" rather than "basic". It is still safe here: it can only be created from the
+  // same-origin basic response fetched immediately above; cross-origin responses never enter
+  // this path.
+  if (!resp.ok || (resp.type !== "basic" && resp.type !== "default")) return false;
 
   // Serving a redirected response from the cache under the original URL hands back the target's
   // body for the source address, and a navigation rejects it outright.
