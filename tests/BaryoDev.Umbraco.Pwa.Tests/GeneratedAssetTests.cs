@@ -271,8 +271,19 @@ public class GeneratedAssetTests
         worker.ShouldNotContain(".addAll(");
 
         var unguarded = writes
-            .Where(x => !string.Join("\n", lines.Skip(Math.Max(0, x.index - 3)).Take(3))
-                .Contains("storable(resp)"))
+            .Where(x =>
+            {
+                var from = writes.LastOrDefault(w => w.index < x.index) is { line: not null } prev
+                    ? prev.index + 1
+                    : 0;
+
+                var span = string.Join(
+                    "\n",
+                    lines.Skip(from).Take(x.index - from + 1));
+
+                return !span.Contains("cacheable(resp)")
+                    && !span.Contains("storable(resp)");
+            })
             .Select(x => x.index + 1)
             .ToList();
 
@@ -293,8 +304,8 @@ public class GeneratedAssetTests
         worker.ShouldContain("const NAV_FALLBACK = \"/offline\"");
         install.ShouldContain("waitUntil");
         install.ShouldContain("fetch(NAV_FALLBACK)");
-        install.ShouldContain("c.put(NAV_FALLBACK, resp)");
-        install.ShouldContain("storable(resp)");
+        install.ShouldContain("c.put(NAV_FALLBACK, repaired)");
+        install.ShouldContain("cacheable(resp)");
     }
 
     [Fact]

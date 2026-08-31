@@ -119,9 +119,26 @@ self.addEventListener("install", (event) => {
   // failure this precache exists to prevent.
   event.waitUntil(
     fetch(NAV_FALLBACK)
-      .then((resp) => {
-        if (!storable(resp)) return;
-        return caches.open(SHELL).then((c) => c.put(NAV_FALLBACK, resp));
+      .then(async (resp) => {
+        if (!cacheable(resp)) return;
+
+        // A redirected response cannot be replayed for a navigation under the source URL. Keep
+        // that safety rule, but cache an equivalent response whose body and metadata came from the
+        // final target, without the redirect flag.
+        let repaired = resp;
+        if (resp.redirected) {
+          const headers = new Headers(resp.headers);
+          // Fetch exposes the decoded body, so these wire-level headers would describe bytes that
+          // are no longer in the reconstructed response and can make Cache.put reject it.
+          headers.delete("Content-Encoding");
+          headers.delete("Content-Length");
+          repaired = new Response(await resp.arrayBuffer(), {
+            status: resp.status,
+            statusText: resp.statusText,
+            headers,
+          });
+        }
+        return caches.open(SHELL).then((c) => c.put(NAV_FALLBACK, repaired));
       })
       // A fallback that will not fetch today must not leave the site with no service worker.
       .catch(() => {})
@@ -131,15 +148,17 @@ self.addEventListener("install", (event) => {
 
 // The Cache Storage API stores whatever it is handed and enforces no HTTP semantics of its own,
 // so every rule the browser's own cache would apply has to be applied here instead.
-function storable(resp) {
+function cacheable(resp) {
   if (!resp.ok || resp.type !== "basic") return false;
-
-  // Serving a redirected response from the cache under the original URL hands back the target's
-  // body for the source address, and a navigation rejects it outright.
-  if (resp.redirected) return false;
 
   const directives = (resp.headers.get("Cache-Control") || "").toLowerCase().split(",");
   return !directives.some((d) => d.trim() === "no-store" || d.trim() === "private");
+}
+
+function storable(resp) {
+  // Serving a redirected response from the cache under the original URL hands back the target's
+  // body for the source address, and a navigation rejects it outright.
+  return cacheable(resp) && !resp.redirected;
 }
 
 self.addEventListener("activate", (event) => {

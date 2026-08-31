@@ -46,6 +46,29 @@ public class ServiceWorkerBehaviourTests
     }
 
     [Fact]
+    public async Task A_redirecting_fallback_is_cached_as_a_replayable_response()
+    {
+        var page = await Installed("/redirecting-sw.js");
+
+        var result = await page.EvaluateAsync<string>($@"async () => {{
+            const response = await caches.match('{LiveSiteFixture.RedirectingFallback}');
+            return JSON.stringify({{ redirected: response.redirected, body: await response.text() }});
+        }}");
+        var json = System.Text.Json.JsonDocument.Parse(result);
+
+        json.RootElement.GetProperty("redirected").GetBoolean().ShouldBeFalse();
+        json.RootElement.GetProperty("body").GetString().ShouldContain("PWA for Umbraco");
+    }
+
+    [Fact]
+    public async Task A_cross_origin_redirecting_fallback_is_not_cached_under_the_local_key()
+    {
+        var page = await Installed("/redirecting-cross-origin-sw.js");
+
+        (await CacheKeys(page)).ShouldNotContain(LiveSiteFixture.CrossOriginRedirectingFallback);
+    }
+
+    [Fact]
     public async Task An_offline_navigation_to_a_page_never_visited_serves_the_fallback()
     {
         // The claim the package leads with, asserted end to end rather than inferred from the
@@ -270,8 +293,16 @@ public class ServiceWorkerBehaviourTests
         return page;
     }
 
+    private async Task<IPage> Installed(string serviceWorker)
+    {
+        var (page, _) = await InstalledSession(serviceWorker: serviceWorker);
+        return page;
+    }
+
+    // seed stays first so the existing positional call site keeps compiling.
     private async Task<(IPage Page, Func<Task> GoOffline)> InstalledSession(
-        Func<IPage, Task>? seed = null)
+        Func<IPage, Task>? seed = null,
+        string serviceWorker = "/sw.js")
     {
         _site.EnableNetwork();
         var page = await _site.NewPageAsync();
@@ -287,14 +318,14 @@ public class ServiceWorkerBehaviourTests
 
         // Raced against a timeout on purpose. EvaluateAsync has no default timeout, so a worker
         // that never activates would otherwise hang the run instead of failing it.
-        await page.EvaluateAsync(@"async () => {
-            await navigator.serviceWorker.register('/sw.js');
+        await page.EvaluateAsync($@"async () => {{
+            await navigator.serviceWorker.register('{serviceWorker}');
             await Promise.race([
                 navigator.serviceWorker.ready,
                 new Promise((_, reject) =>
                     setTimeout(() => reject(new Error('the worker never became ready')), 20000)),
             ]);
-        }");
+        }}");
 
         await page.EvaluateAsync(@"async () => {
             if (navigator.serviceWorker.controller) return;
