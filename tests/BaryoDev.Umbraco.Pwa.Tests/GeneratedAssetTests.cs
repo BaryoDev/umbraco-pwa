@@ -271,9 +271,19 @@ public class GeneratedAssetTests
         worker.ShouldNotContain(".addAll(");
 
         var unguarded = writes
-            .Where(x => !string.Join("\n", lines.Skip(Math.Max(0, x.index - 20)).Take(20))
-                .Contains("cacheable(resp)") && !string.Join("\n", lines.Skip(Math.Max(0, x.index - 20)).Take(20))
-                .Contains("storable(resp)"))
+            .Where(x =>
+            {
+                var from = writes.LastOrDefault(w => w.index < x.index) is { line: not null } prev
+                    ? prev.index + 1
+                    : 0;
+
+                var span = string.Join(
+                    "\n",
+                    lines.Skip(from).Take(x.index - from + 1));
+
+                return !span.Contains("cacheable(resp)")
+                    && !span.Contains("storable(resp)");
+            })
             .Select(x => x.index + 1)
             .ToList();
 

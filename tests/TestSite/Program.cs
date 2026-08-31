@@ -4,6 +4,7 @@ using System.Reflection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Umbraco.Extensions;
 using Umbraco.Cms.Core.DependencyInjection;
+using BaryoDev.Umbraco.Pwa.Services;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -120,27 +121,26 @@ app.MapGet("/api/browser-test", () => Results.Json(new { source = "live-api" }))
 app.MapGet("/redirecting-fallback", () => Results.Redirect("/demo.html"));
 
 app.MapGet("/redirecting-cross-origin-fallback", (HttpRequest request) =>
+    // localhost versus 127.0.0.1 is intentional: both names reach this listener, but the browser
+    // treats the redirect as genuinely cross-origin.
     Results.Redirect($"{request.Scheme}://localhost:{request.Host.Port}/cross-origin-target"));
 
 app.MapGet("/cross-origin-target", (HttpResponse response) =>
 {
+    // CORS is required so fetch returns a real response instead of rejecting and being swallowed
+    // by the worker's .catch(() => {}). No no-store: the test must depend on the origin/type rule.
     response.Headers.AccessControlAllowOrigin = "*";
-    response.Headers.CacheControl = "no-store";
     return Results.Text("cross-origin target");
 });
 
-app.MapGet("/redirecting-sw.js", (BaryoDev.Umbraco.Pwa.Services.IPwaAssetGenerator generator) =>
+app.MapGet("/redirecting-sw.js", (IPwaAssetGenerator generator) =>
     Results.Text(
-        generator.ServiceWorker().Replace(
-            "const NAV_FALLBACK = \"/demo.html\";",
-            "const NAV_FALLBACK = \"/redirecting-fallback\";"),
+        WorkerWithFallback(generator, "/redirecting-fallback"),
         "text/javascript"));
 
-app.MapGet("/redirecting-cross-origin-sw.js", (BaryoDev.Umbraco.Pwa.Services.IPwaAssetGenerator generator) =>
+app.MapGet("/redirecting-cross-origin-sw.js", (IPwaAssetGenerator generator) =>
     Results.Text(
-        generator.ServiceWorker().Replace(
-            "const NAV_FALLBACK = \"/demo.html\";",
-            "const NAV_FALLBACK = \"/redirecting-cross-origin-fallback\";"),
+        WorkerWithFallback(generator, "/redirecting-cross-origin-fallback"),
         "text/javascript"));
 
 await app.RunAsync();
@@ -148,3 +148,18 @@ await app.RunAsync();
 // Top-level statements generate an internal Program class. WebApplicationFactory<Program> needs it
 // public, otherwise a public test fixture cannot derive from the factory.
 public partial class Program { }
+
+static string WorkerWithFallback(IPwaAssetGenerator generator, string fallback)
+{
+    const string marker = "const NAV_FALLBACK = \"/demo.html\";";
+    var worker = generator.ServiceWorker();
+
+    if (!worker.Contains(marker))
+    {
+        throw new InvalidOperationException(
+            $"The generated worker no longer contains {marker}. The browser tests that repoint "
+            + "the fallback would silently run against the ordinary worker.");
+    }
+
+    return worker.Replace(marker, $"const NAV_FALLBACK = \"{fallback}\";");
+}
