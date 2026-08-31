@@ -66,7 +66,8 @@ is a vulnerability.
 ## Supported versions
 
 Fixes go to the latest published version. The package supports Umbraco 16, 17 and 18, and CI runs
-the suite against all three.
+the suite against all three on every pull request. [VERSIONING.md](VERSIONING.md) holds the full
+policy, including what counts as a breaking change to each of the five public surfaces.
 
 ## Known non-issues
 

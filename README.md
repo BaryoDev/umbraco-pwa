@@ -155,6 +155,14 @@ Umbraco 16, 17 or 18. The package multi-targets .NET 9 and .NET 10 and NuGet pic
 lands between 16 and 17, so the two do not align and one assembly cannot span both. 15 is also
 standard-term support and past its one-year window.
 
+## Versions
+
+From 1.0 this package follows semantic versioning across five public surfaces, not just the
+assembly API: the configuration keys, the report contract, the database table and the generated
+asset URLs are equally public, and breaking any of them breaks a site rather than a build.
+[VERSIONING.md](VERSIONING.md) says what each covers, which test gates it, and which Umbraco
+versions are supported.
+
 ## Contributing
 
 Contributions are welcome, and the issue list is written to be picked up by someone who has never
