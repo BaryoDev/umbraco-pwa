@@ -1,0 +1,48 @@
+name: Scorecard
+
+# Standing regression check rather than a score to chase. Most of what it looks at is what this
+# repository just fixed: pinned actions, a permissions block on every workflow, dependency update
+# tooling, branch protection. Without something watching, those quietly come undone.
+on:
+  branch_protection_rule:
+  schedule:
+    - cron: "41 5 * * 1"
+  push:
+    branches: [main]
+
+permissions: read-all
+
+jobs:
+  analyse:
+    name: Scorecard
+    runs-on: ubuntu-latest
+    permissions:
+      # Needed to upload the result to the code-scanning dashboard.
+      security-events: write
+      # Needed for the publish step to prove where the result came from.
+      id-token: write
+      contents: read
+      actions: read
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: ossf/scorecard-action@f49aabe0b5af0936a0987cfb85d86b75731b0186 # v2.4.1
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publishing makes the result readable without a GitHub login, which is the point for a
+          # package asking agencies to install it into client sites.
+          publish_results: true
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: scorecard-results
+          path: results.sarif
+          retention-days: 5
+
+      - uses: github/codeql-action/upload-sarif@6f5948dfacef28e207b48d0905cf90c03365536d # v3
+        with:
+          sarif_file: results.sarif

@@ -1,0 +1,22 @@
+<Project>
+
+  <!-- An audit job that audits nothing is green, which is the same shape as the text assertions
+       that let three defects reach 0.2.0 while the suite passed. NuGet reports how many projects
+       restore actually audited, so the audit job asserts it covered all of them rather than
+       trusting that it did.
+
+       This lives beside the solution rather than in Directory.Build.props because restore runs at
+       the solution level, and Directory.Build.props is imported by projects. Skipped projects are
+       added back in: restore skips ones that are already up to date, and those are not failures.
+
+       Not available under static graph restore, so the audit job must not use it. -->
+  <Target Name="AssertEveryProjectWasAudited"
+          AfterTargets="Restore"
+          Condition="'$(AuditPipeline)' == 'true'">
+    <Error Condition="'$(RestoreProjectCount)' != '$([MSBuild]::Add($(RestoreProjectsAuditedCount), $(RestoreSkippedCount)))'"
+           Text="Restore audited $(RestoreProjectsAuditedCount) of $(RestoreProjectCount) projects ($(RestoreSkippedCount) skipped). The audit gate cannot pass on a partial run." />
+    <Message Importance="high"
+             Text="Audit covered $(RestoreProjectsAuditedCount) project(s), $(RestoreSkippedCount) skipped, $(RestoreProjectCount) total." />
+  </Target>
+
+</Project>

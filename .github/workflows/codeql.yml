@@ -1,0 +1,59 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Advisories and queries both move without this repository changing, so a weekly run catches
+    # what a pull-request-only trigger never would.
+    - cron: "27 4 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  analyse:
+    name: CodeQL ${{ matrix.language }}
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: csharp
+            # No build. Umbraco's restore is the slowest thing in this repository and the C#
+            # extractor no longer needs a compilation to produce a database.
+            build-mode: none
+          - language: javascript-typescript
+            build-mode: none
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: github/codeql-action/init@6f5948dfacef28e207b48d0905cf90c03365536d # v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+
+      - uses: github/codeql-action/analyze@6f5948dfacef28e207b48d0905cf90c03365536d # v3
+        with:
+          category: /language:${{ matrix.language }}
+
+  # The service worker is the most security-sensitive JavaScript this package ships and CodeQL
+  # cannot see it: it lives inside a C# raw string literal in PwaAssetGenerator, so the extractor
+  # reads it as text. wwwroot/dashboard.js is the only JavaScript actually analysed above.
+  #
+  # Tracked rather than silently accepted. Extracting the worker to a real .js file at build time
+  # would fix it and is costed in the 1.0 work.
+  note-the-gap:
+    name: Known extraction gap
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "::notice::CodeQL analyses wwwroot/dashboard.js only."
+          echo "::notice::The generated service worker is a C# string literal and is not extracted as JavaScript."

@@ -49,6 +49,30 @@
     <PackageReference Include="Umbraco.Cms.Api.Management" Version="[17.0.0, 19.0.0)" />
   </ItemGroup>
 
+  <!-- This package does not use System.Security.Cryptography.Xml. It pins it because Umbraco
+       drags in a vulnerable version and the fix does not reach anyone who installs this.
+
+       Umbraco.Cms.Api.Management -> Api.Common -> Web.Common -> Examine.Lucene -> Examine 3.7.1
+       -> Microsoft.AspNetCore.DataProtection 8.0.4 -> System.Security.Cryptography.Xml 8.0.0 on
+       net10.0, and 9.0.4 on net9.0. Both are inside the vulnerable range of eight advisories,
+       seven denial of service and one signature-verification bypass (CVE-2026-47304, CVSS 8.1).
+
+       Umbraco pinned this in their own Directory.Packages.props (PR #22514), but a central pin is
+       build-internal: the published Umbraco.Cms.Examine.Lucene 17.0.0 nuspec declares only
+       Examine 3.7.1, so the pin does not flow to consumers. No Examine 3.x release takes the fix
+       either, and Examine 4 is Umbraco 19. So there is nothing upstream to bump, and without this
+       every site installing this package resolves a vulnerable assembly.
+
+       A direct reference here raises the floor for consumers too, which is the point. Remove it
+       when Umbraco 19 support lands (#66) and Examine 4 makes it redundant. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="9.0.19" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.11" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="/" />
     <None Include="../../icon.png" Pack="true" PackagePath="/" />
