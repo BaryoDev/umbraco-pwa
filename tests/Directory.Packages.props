@@ -30,14 +30,14 @@
 
     <!-- The test project's packages. Under central management these live here rather than in
          the csproj, so both test projects agree on versions. -->
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
-    <PackageVersion Include="PublicApiGenerator" Version="11.4.5" />
+    <PackageVersion Include="PublicApiGenerator" Version="11.5.4" />
     <!-- Browser tests only. The package ships JavaScript, and until this arrived nothing
          executed a line of it: every assertion was against generated text. -->
-    <PackageVersion Include="Microsoft.Playwright" Version="1.56.0" />
+    <PackageVersion Include="Microsoft.Playwright" Version="1.62.0" />
   </ItemGroup>
 </Project>
