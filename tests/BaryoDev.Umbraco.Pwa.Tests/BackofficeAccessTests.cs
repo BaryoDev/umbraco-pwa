@@ -16,6 +16,12 @@ public class BackofficeAccessTests
     private const string Summary = "/umbraco/management/api/v1/baryodev/pwa/summary";
     private const string Installs = "/umbraco/management/api/v1/baryodev/pwa/installs";
 
+    /// <summary>
+    /// The one that costs something to reach. It runs the icon probe, so an unauthenticated
+    /// caller who got here could make the server issue an outbound request.
+    /// </summary>
+    private const string Readiness = "/umbraco/management/api/v1/baryodev/pwa/readiness";
+
     private readonly UmbracoSiteFixture _site;
 
     public BackofficeAccessTests(UmbracoSiteFixture site) => _site = site;
@@ -24,11 +30,41 @@ public class BackofficeAccessTests
     [InlineData(Summary)]
     [InlineData(Installs)]
     [InlineData(Installs + "?installedOnly=true")]
+    [InlineData(Readiness)]
     public async Task An_anonymous_caller_gets_nothing(string path)
     {
         var response = await _site.Client.GetAsync(path);
 
         response.StatusCode.ShouldBeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
+    public void The_controller_still_carries_the_settings_section_policy()
+    {
+        // The HTTP test above cannot see this, and that is worth being explicit about rather than
+        // leaving as a comfortable assumption. Umbraco guards the whole
+        // /umbraco/management/api surface, so an anonymous caller is refused by the host before
+        // this package's policy is consulted. Delete the [Authorize] from PwaInstallsController
+        // entirely and every case in this file still passes.
+        //
+        // What that leaves untested is the claim SECURITY.md actually makes: not that anonymous
+        // callers are refused, but that these endpoints need the Settings section. A backoffice
+        // user without it would still be signed in, so Umbraco's guard lets them through and only
+        // the policy stops them.
+        //
+        // Asserted on the compiled attribute rather than the source text, so it survives a rename
+        // and fails on removal. It is a weaker test than driving two real users through the
+        // endpoints, and it is the strongest one available without a backoffice token. The real
+        // one is worth building before 1.0.
+        var authorize = typeof(BaryoDev.Umbraco.Pwa.Controllers.PwaInstallsController)
+            .GetCustomAttributes(typeof(Microsoft.AspNetCore.Authorization.AuthorizeAttribute), inherit: true)
+            .Cast<Microsoft.AspNetCore.Authorization.AuthorizeAttribute>()
+            .ToList();
+
+        authorize.ShouldNotBeEmpty("the read side must not be reachable without a policy");
+        authorize.ShouldContain(
+            a => a.Policy == global::Umbraco.Cms.Web.Common.Authorization.AuthorizationPolicies.SectionAccessSettings,
+            "SECURITY.md promises these endpoints are behind the Settings section");
     }
 
     [Fact]
@@ -48,7 +84,7 @@ public class BackofficeAccessTests
     {
         // A 401 proves the route exists and is guarded. A 404 would mean the dashboard is calling
         // a URL that was never mapped, which looks identical to "no installs yet" in the UI.
-        foreach (var path in new[] { Summary, Installs })
+        foreach (var path in new[] { Summary, Installs, Readiness })
         {
             var response = await _site.Client.GetAsync(path);
             response.StatusCode.ShouldNotBe(HttpStatusCode.NotFound, $"{path} should be routed");
