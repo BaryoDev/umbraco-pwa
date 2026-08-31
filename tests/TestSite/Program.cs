@@ -119,6 +119,30 @@ app.MapGet("/test-entry", (IWebHostEnvironment env) =>
 app.MapGet("/api/browser-test", () => Results.Json(new { source = "live-api" }));
 app.MapGet("/redirecting-fallback", () => Results.Redirect("/demo.html"));
 
+app.MapGet("/redirecting-cross-origin-fallback", (HttpRequest request) =>
+    Results.Redirect($"{request.Scheme}://localhost:{request.Host.Port}/cross-origin-target"));
+
+app.MapGet("/cross-origin-target", (HttpResponse response) =>
+{
+    response.Headers.AccessControlAllowOrigin = "*";
+    response.Headers.CacheControl = "no-store";
+    return Results.Text("cross-origin target");
+});
+
+app.MapGet("/redirecting-sw.js", (BaryoDev.Umbraco.Pwa.Services.IPwaAssetGenerator generator) =>
+    Results.Text(
+        generator.ServiceWorker().Replace(
+            "const NAV_FALLBACK = \"/demo.html\";",
+            "const NAV_FALLBACK = \"/redirecting-fallback\";"),
+        "text/javascript"));
+
+app.MapGet("/redirecting-cross-origin-sw.js", (BaryoDev.Umbraco.Pwa.Services.IPwaAssetGenerator generator) =>
+    Results.Text(
+        generator.ServiceWorker().Replace(
+            "const NAV_FALLBACK = \"/demo.html\";",
+            "const NAV_FALLBACK = \"/redirecting-cross-origin-fallback\";"),
+        "text/javascript"));
+
 await app.RunAsync();
 
 // Top-level statements generate an internal Program class. WebApplicationFactory<Program> needs it

@@ -58,8 +58,14 @@ public class LiveSiteFixture : IAsyncLifetime
     /// <summary>The API route whose live and cached responses the browser tests inspect.</summary>
     public const string ApiRoute = "/api/browser-test";
 
-    /// <summary>What the worker falls back to offline. Never navigated to by any test.</summary>
-    public const string Fallback = "/redirecting-fallback";
+    /// <summary>What the standard worker falls back to offline. Never navigated to by any test.</summary>
+    public const string Fallback = "/demo.html";
+
+    /// <summary>Fallback used only by the redirect-specific worker regression.</summary>
+    public const string RedirectingFallback = "/redirecting-fallback";
+
+    /// <summary>Cross-origin fallback key used by the rejection regression.</summary>
+    public const string CrossOriginRedirectingFallback = "/redirecting-cross-origin-fallback";
 
     /// <summary>The page tests load to get the worker installed. Not the fallback.</summary>
     public const string EntryPage = "/test-entry";
