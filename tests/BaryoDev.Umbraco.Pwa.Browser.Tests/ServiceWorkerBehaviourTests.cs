@@ -106,6 +106,67 @@ public class ServiceWorkerBehaviourTests
     }
 
     [Fact]
+    public async Task A_no_store_response_is_never_cached_but_an_ordinary_response_is()
+    {
+        var page = await Installed();
+
+        var noStoreStatus = await page.EvaluateAsync<int>(
+            "async () => (await fetch('/cache-control-no-store')).status");
+        var ordinaryStatus = await page.EvaluateAsync<int>(
+            "async () => (await fetch('/icon-192.png')).status");
+        await Settle(page);
+
+        noStoreStatus.ShouldBe(200);
+        ordinaryStatus.ShouldBe(200);
+        var keys = await CacheKeys(page);
+        keys.ShouldNotContain("/cache-control-no-store");
+        keys.ShouldContain("/icon-192.png");
+    }
+
+    [Fact]
+    public async Task A_private_response_is_never_cached_but_an_ordinary_response_is()
+    {
+        var page = await Installed();
+
+        var privateStatus = await page.EvaluateAsync<int>(
+            "async () => (await fetch('/cache-control-private')).status");
+        var ordinaryStatus = await page.EvaluateAsync<int>(
+            "async () => (await fetch('/icon-192.png')).status");
+        await Settle(page);
+
+        privateStatus.ShouldBe(200);
+        ordinaryStatus.ShouldBe(200);
+        var keys = await CacheKeys(page);
+        keys.ShouldNotContain("/cache-control-private");
+        keys.ShouldContain("/icon-192.png");
+    }
+
+    [Fact]
+    public async Task A_cross_origin_request_is_left_to_the_browser_but_an_ordinary_response_is_cached()
+    {
+        var page = await Installed();
+        var opaqueUrl = "http://opaque.test/opaque-response";
+
+        // The worker deliberately leaves cross-origin requests to the browser before fetching
+        // them. This test therefore covers routing, not the worker's non-basic storable() rule.
+        // The same-origin control still takes the cache-writing path.
+        await page.Context.RouteAsync("http://opaque.test/**", route =>
+            route.FulfillAsync(new() { Status = 200, Body = "opaque response" }));
+
+        var responseType = await page.EvaluateAsync<string>(
+            $"async () => (await fetch('{opaqueUrl}', {{ mode: 'no-cors' }})).type");
+        var ordinaryStatus = await page.EvaluateAsync<int>(
+            "async () => (await fetch('/icon-192.png')).status");
+        await Settle(page);
+
+        responseType.ShouldBe("opaque");
+        ordinaryStatus.ShouldBe(200);
+        var keys = await CacheKeys(page);
+        keys.ShouldNotContain("/opaque-response");
+        keys.ShouldContain("/icon-192.png");
+    }
+
+    [Fact]
     public async Task The_backoffice_is_never_cached()
     {
         // A cached backoffice is a stale editing experience, and on a shared machine it is one
