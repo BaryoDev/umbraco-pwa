@@ -1,0 +1,60 @@
+<Project>
+
+  <!-- NuGet audit runs on every restore and already covers transitive packages: NuGetAuditMode
+       defaults to "all" when any target framework is net10.0, and this repo has one. What it does
+       not do by default is fail anything, so a package with a known advisory used to restore,
+       build, test and publish green.
+
+       Warnings locally, errors in the audit job. A new advisory published against a transitive
+       dependency should not break someone's bugfix on a Tuesday, but it must not reach a release
+       either, so the audit pipeline runs restore with -p:AuditPipeline=true and treats them as
+       errors. See .github/workflows/ci.yml, the "audit" job. -->
+  <PropertyGroup>
+    <NuGetAuditCodes>NU1900;NU1901;NU1902;NU1903;NU1904;NU1905</NuGetAuditCodes>
+    <WarningsAsErrors Condition=" '$(AuditPipeline)' == 'true' ">$(WarningsAsErrors);$(NuGetAuditCodes)</WarningsAsErrors>
+    <WarningsNotAsErrors Condition=" '$(AuditPipeline)' != 'true' ">$(WarningsNotAsErrors);$(NuGetAuditCodes)</WarningsNotAsErrors>
+  </PropertyGroup>
+
+
+  <!-- Advisories this repository cannot fix, reviewed 31 August 2026.
+
+       Every one of these is a transitive dependency of Umbraco itself: MessagePack via
+       PublishedCache.HybridCache, Microsoft.OpenApi via Swashbuckle, MailKit and MimeKit via
+       Umbraco.Cms.Infrastructure. Pinning them here would mean this package overriding Umbraco's
+       own choices for caching, OpenAPI generation and email, guessing at compatibility with code
+       it does not own. That is not a PWA package's job and it would rot.
+
+       System.Security.Cryptography.Xml is deliberately NOT in this list. It is pinned in
+       BaryoDev.Umbraco.Pwa.csproj instead, because it is one small framework library, one of its
+       eight advisories is a signature-verification bypass rather than a denial of service, and
+       Umbraco pin it themselves. The line is: pin what is small, severe and precedented, suppress
+       what belongs to the host and report it.
+
+       Rules for this list. Every entry names the package and why it is here. Nothing goes in
+       without an upstream report. Review it every release, and delete entries as Umbraco picks up
+       the fixes. If this list is still growing at 1.0, that is the signal to reconsider, not to
+       add another line. -->
+  <ItemGroup>
+    <!-- MessagePack 3.1.4, via Umbraco.Cms.PublishedCache.HybridCache -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-382j-8mxh-c7x2" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-hv8m-jj95-wg3x" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-vh6j-jc39-fggf" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2f33-pr97-265q" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2x83-8g95-xh59" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-cj9g-3mj2-g8vv" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-cxmj-83gh-fp49" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-q2h6-ghwm-5qm8" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-qhmf-xw27-6rqr" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v72x-2h86-7f8m" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-w567-gjr2-hm5j" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-wfr3-xj75-pfwh" />
+
+    <!-- Microsoft.OpenApi 2.3.0, via Swashbuckle.AspNetCore -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-v5pm-xwqc-g5wc" />
+
+    <!-- MailKit and MimeKit 4.14.0, via Umbraco.Cms.Infrastructure -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-9j88-vvj5-vhgr" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-g7hc-96xr-gvvx" />
+  </ItemGroup>
+
+</Project>

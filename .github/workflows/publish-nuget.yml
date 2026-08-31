@@ -27,9 +27,11 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           # Both, because the package multi-targets: Umbraco 16 is .NET 9, 17 and 18 are .NET 10.
           dotnet-version: |
@@ -39,7 +41,8 @@ jobs:
       - name: Read version from source
         id: version
         run: |
-          # This repo has no Directory.Build.props; the version lives on the package project.
+          # Directory.Build.props exists but carries only audit settings; the version lives on
+          # the package project.
           VERSION=$(grep -oP '(?<=<Version>)[^<]+' src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj)
           test -n "$VERSION" || { echo "::error::No <Version> found in the csproj"; exit 1; }
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -70,7 +73,7 @@ jobs:
       - name: List artifacts
         run: ls -la ./nupkgs
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: nupkgs
           path: ./nupkgs/*
@@ -278,7 +281,7 @@ jobs:
       # publishing policy. Obtaining a key publishes nothing.
       - name: Exchange OIDC token for a short-lived NuGet key
         id: nuget_login
-        uses: NuGet/login@v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         with:
           user: ${{ vars.NUGET_USER || 'arnelirobles' }}
 

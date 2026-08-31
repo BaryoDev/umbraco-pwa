@@ -1,0 +1,31 @@
+# Two ecosystems, and the second one matters more than it looks. Workflow actions were pinned to
+# floating tags until now, and a tag is mutable: the thing that ran last week is not necessarily
+# the thing that runs today. They are pinned to commit SHAs now, which is only maintainable if
+# something proposes the bumps.
+version: 2
+updates:
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      # Umbraco is referenced by version range on purpose, so these should be rare. When one does
+      # arrive it needs the whole matrix to pass, which is easier to judge as one pull request.
+      umbraco:
+        patterns:
+          - "Umbraco.*"
+      test-tooling:
+        patterns:
+          - "xunit*"
+          - "Microsoft.NET.Test.Sdk"
+          - "Shouldly"
+          - "Microsoft.Playwright*"
+          - "PublicApiGenerator"
+          - "Verify*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
