@@ -142,15 +142,14 @@ public class ServiceWorkerBehaviourTests
     }
 
     [Fact]
-    public async Task A_cross_origin_opaque_response_is_never_cached_but_an_ordinary_response_is()
+    public async Task A_cross_origin_request_is_left_to_the_browser_but_an_ordinary_response_is_cached()
     {
         var page = await Installed();
         var opaqueUrl = "http://opaque.test/opaque-response";
 
-        // The worker deliberately ignores cross-origin requests before fetching them. This is
-        // the strongest browser-level check available here for the non-basic rule: prove a real
-        // no-cors response is opaque and cannot enter this worker's Cache Storage, while the
-        // same-origin control still takes the cache-writing path.
+        // The worker deliberately leaves cross-origin requests to the browser before fetching
+        // them. This test therefore covers routing, not the worker's non-basic storable() rule.
+        // The same-origin control still takes the cache-writing path.
         await page.Context.RouteAsync("http://opaque.test/**", route =>
             route.FulfillAsync(new() { Status = 200, Body = "opaque response" }));
 
