@@ -32,6 +32,46 @@ public class ReportEndpointTests
         (await _installs.GetAllAsync(installedOnly: false))
         .FirstOrDefault(x => x.DeviceId == deviceId);
 
+    [Theory]
+    // Anything that could open a tag or an attribute in the dashboard, which renders this value
+    // into an administrator's browser. The escaping there is still correct; it is no longer the
+    // only thing holding.
+    [InlineData("<script>alert(1)</script>")]
+    [InlineData("\" onmouseover=\"alert(1)")]
+    [InlineData("id<img src=x onerror=alert(1)>")]
+    [InlineData("id'--")]
+    [InlineData("id&amp;")]
+    [InlineData("id with spaces")]
+    [InlineData("id/../../etc/passwd")]
+    [InlineData("id\u0000null")]
+    public async Task A_device_id_that_is_not_browser_shaped_is_dropped(string deviceId)
+    {
+        var response = await _site.ReportAsync(Report(deviceId));
+
+        // Still 202. A distinguishable response would tell an anonymous caller which ids exist,
+        // which is the reason this endpoint has one answer for everything.
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+
+        (await Find(deviceId)).ShouldBeNull();
+    }
+
+    [Theory]
+    // The control. A check that refused everything would pass every case above and stop the
+    // package working, and these are the exact shapes the generated client emits.
+    [InlineData("6f9619ff-8b86-d011-b42d-00cf4fc964ff")]
+    [InlineData("k3n8vq2x1z9")]
+    [InlineData("ephemeral-a1b2c3")]
+    [InlineData("base64url_id.with-all:allowed")]
+    public async Task A_browser_shaped_device_id_is_still_stored(string deviceId)
+    {
+        var unique = $"{deviceId}-{Guid.NewGuid():N}"[..Math.Min(100, deviceId.Length + 33)];
+
+        var response = await _site.ReportAsync(Report(unique));
+
+        response.StatusCode.ShouldBe(HttpStatusCode.Accepted);
+        (await Find(unique)).ShouldNotBeNull();
+    }
+
     [Fact]
     public async Task A_report_is_accepted_and_stored()
     {

@@ -9,6 +9,42 @@ gets a migration note here. The `.approved.txt` files in
 
 ## [Unreleased]
 
+### Security
+
+- **The readiness check can no longer be used to probe the network the server sits on.** It fetches
+  whatever URL the icon configuration names, and it followed redirects with no check on where they
+  led, so cloud instance metadata and anything on a private subnet were reachable, with open,
+  closed and filtered distinguishable from the reply. The guard now runs in the connection callback
+  rather than on the URL, so it covers every redirect hop and validates the address it then dials.
+  ([#88], [#95])
+- **Failure detail no longer carries the exception.** `ex.Message` reached the backoffice and the
+  application log, and `HttpClient` messages name hosts and ports. ([#88], [#95])
+- **`deviceId` is checked against a character set, not only truncated.** It arrives from an
+  anonymous endpoint and is rendered into an administrator's dashboard. The escaping there was the
+  only thing holding, while `SECURITY.md` described both halves as load-bearing. ([#98])
+- **The report body is capped at 4KB.** `deviceId` is cut to 100 characters only after the JSON has
+  been parsed. ([#98])
+- **`System.Security.Cryptography.Xml` is pinned per target framework.** Umbraco resolves 8.0.0 on
+  net10.0 and 9.0.4 on net9.0 through Examine, and both are inside the range of eight advisories,
+  one of them a signature-verification bypass. Umbraco pin it internally, but the published
+  Examine.Lucene nuspec does not carry the pin, so it never reached anyone installing this package.
+  The pin is in this package's nuspec, so upgrading raises the floor for your site too. ([#90])
+
+### Added
+
+- `[RequestSizeLimit(4096)]` on the report action, which is an addition to the public surface.
+  ([#98])
+
+### Changed
+
+- **`SECURITY.md` said there was no outbound call to any third party at runtime.** That was not
+  true: the readiness check probes a configured absolute icon URL, and it runs on every application
+  start rather than only when an administrator asks. It now describes what actually happens, and
+  what to configure to avoid it entirely. `CLAUDE.md`'s constraint list says the same. ([#88])
+- Dependency advisories now fail the build in a dedicated CI job rather than only warning, and the
+  job asserts that restore actually audited every project. ([#90])
+
+
 ## [0.4.0] - 2026-08-27
 
 ### Added
@@ -166,3 +202,7 @@ First release.
 [#76]: https://github.com/BaryoDev/umbraco-pwa/pull/76
 [#78]: https://github.com/BaryoDev/umbraco-pwa/pull/78
 [#79]: https://github.com/BaryoDev/umbraco-pwa/pull/79
+[#88]: https://github.com/BaryoDev/umbraco-pwa/issues/88
+[#90]: https://github.com/BaryoDev/umbraco-pwa/pull/90
+[#95]: https://github.com/BaryoDev/umbraco-pwa/pull/95
+[#98]: https://github.com/BaryoDev/umbraco-pwa/pull/98

@@ -20,11 +20,18 @@ namespace BaryoDev.Umbraco.Pwa.Controllers;
 [Route("umbraco/pwa/api")]
 public class PwaReportController : ControllerBase
 {
+    /// <summary>Generous for four short fields, and small enough not to be a lever.</summary>
+    private const int MaxBodyBytes = 4096;
+
     private readonly IPwaInstallService _installs;
 
     public PwaReportController(IPwaInstallService installs) => _installs = installs;
 
     [HttpPost("report")]
+    // Four small fields. The largest legitimate body is a few hundred bytes, and deviceId is cut
+    // to 100 characters only after the JSON has been parsed, so without this a caller can have the
+    // server materialise megabytes before anything gets to reject it.
+    [RequestSizeLimit(MaxBodyBytes)]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     public async Task<IActionResult> Report(
         [FromBody] PwaReportRequest report,

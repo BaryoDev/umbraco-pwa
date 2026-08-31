@@ -46,6 +46,12 @@ internal class PwaInstallService : IPwaInstallService
         var deviceId = Clean(report.DeviceId, 100);
         if (string.IsNullOrWhiteSpace(deviceId)) return;
 
+        // Platform and display mode are checked against a known set. This one used to be truncated
+        // and nothing else, which left the dashboard's escaping as the only thing standing between
+        // an anonymous caller and script in an administrator's browser. SECURITY.md called both
+        // halves load-bearing while only one of them existed for this field.
+        if (!IsWellFormedDeviceId(deviceId)) return;
+
         var displayMode = KnownDisplayModes.Contains(report.DisplayMode) ? report.DisplayMode : "browser";
         var installed = report.Installed || displayMode is "standalone" or "fullscreen";
 
@@ -146,6 +152,34 @@ internal class PwaInstallService : IPwaInstallService
     {
         var cleaned = Clean(value, 32)?.ToLowerInvariant();
         return cleaned is not null && KnownPlatforms.Contains(cleaned) ? cleaned : "other";
+    }
+
+    /// <summary>
+    /// Whether an id looks like something a browser generated, rather than something written.
+    /// </summary>
+    /// <remarks>
+    /// The generated client produces a <c>crypto.randomUUID()</c>, a base36 string, or one
+    /// prefixed <c>ephemeral-</c>, so hex, letters, digits and a hyphen cover everything this
+    /// package emits. Underscore, dot and colon are allowed on top for other clients implementing
+    /// the same contract, base64url in particular. Nothing in that set can open a tag or an
+    /// attribute.
+    ///
+    /// A malformed id drops the report rather than being scrubbed into a different id. There is no
+    /// sensible default for an identifier, and storing a rewritten one would silently split a
+    /// device's history in two. The endpoint answers 202 either way, which is what it does for
+    /// every other reason a report is not stored.
+    /// </remarks>
+    private static bool IsWellFormedDeviceId(string value)
+    {
+        foreach (var c in value)
+        {
+            if (!char.IsAsciiLetterOrDigit(c) && c is not ('-' or '_' or '.' or ':'))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static string? Clean(string? value, int maxLength)

@@ -41,6 +41,7 @@ namespace BaryoDev.Umbraco.Pwa.Controllers
         public PwaReportController(BaryoDev.Umbraco.Pwa.Services.IPwaInstallService installs) { }
         [Microsoft.AspNetCore.Mvc.HttpPost("report")]
         [Microsoft.AspNetCore.Mvc.ProducesResponseType(202)]
+        [Microsoft.AspNetCore.Mvc.RequestSizeLimit(4096)]
         public System.Threading.Tasks.Task<Microsoft.AspNetCore.Mvc.IActionResult> Report([Microsoft.AspNetCore.Mvc.FromBody] BaryoDev.Umbraco.Pwa.Models.PwaReportRequest report, System.Threading.CancellationToken cancellationToken) { }
     }
 }
