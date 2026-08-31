@@ -145,10 +145,6 @@ app.MapGet("/redirecting-cross-origin-sw.js", (IPwaAssetGenerator generator) =>
 
 await app.RunAsync();
 
-// Top-level statements generate an internal Program class. WebApplicationFactory<Program> needs it
-// public, otherwise a public test fixture cannot derive from the factory.
-public partial class Program { }
-
 static string WorkerWithFallback(IPwaAssetGenerator generator, string fallback)
 {
     const string marker = "const NAV_FALLBACK = \"/demo.html\";";
@@ -163,3 +159,7 @@ static string WorkerWithFallback(IPwaAssetGenerator generator, string fallback)
 
     return worker.Replace(marker, $"const NAV_FALLBACK = \"{fallback}\";");
 }
+
+// Top-level statements generate an internal Program class. WebApplicationFactory<Program> needs it
+// public, otherwise a public test fixture cannot derive from the factory.
+public partial class Program { }
