@@ -23,8 +23,11 @@ jobs:
     permissions:
       contents: read
       # Lets the runner mint the OIDC token nuget.org exchanges for a
-      # short-lived API key. No long-lived secret is involved.
+      # short-lived API key. No long-lived secret is involved. The same token
+      # signs the build provenance attestation.
       id-token: write
+      # Writing the attestation itself.
+      attestations: write
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -64,14 +67,56 @@ jobs:
       - run: dotnet build src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj --configuration Release --no-restore
 
       # A package must never ship without its tests having run.
+      # Everything CI runs, not one project of it. This used to be the unit tests alone, which
+      # left the approval test, the audit gate and the browser suite outside the release path.
+      # They run on pushes to main, so in practice they usually had run. "Usually" is not what a
+      # release gate means, and a tag can be pushed at any commit.
+      - name: Refuse to publish a tree with a known advisory
+        run: dotnet restore BaryoDev.Umbraco.Pwa.slnx -p:AuditPipeline=true --force
+
       - name: Test
         run: dotnet test tests/BaryoDev.Umbraco.Pwa.Tests --configuration Release --verbosity normal
+
+      # The surface a consumer compiles against. A change here decides whether this release is a
+      # minor or a major, so publishing without it is publishing without knowing which.
+      - name: Public API has not changed
+        run: dotnet test tests/BaryoDev.Umbraco.Pwa.ApiApproval.Tests --configuration Release --verbosity normal
+
+      - name: Install Playwright
+        run: |
+          dotnet build tests/BaryoDev.Umbraco.Pwa.Browser.Tests -c Release
+          pwsh tests/BaryoDev.Umbraco.Pwa.Browser.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      # The only thing that executes a line of the generated service worker. Three defects reached
+      # 0.2.0 with every text assertion green, which is why this suite exists at all.
+      - name: Service worker behaviour
+        run: dotnet test tests/BaryoDev.Umbraco.Pwa.Browser.Tests --configuration Release --verbosity normal
 
       - name: Pack
         run: dotnet pack src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj --configuration Release --no-build --output ./nupkgs
 
       - name: List artifacts
         run: ls -la ./nupkgs
+
+      # An agency's procurement asks for this before a package goes into a client site, which is
+      # the audience this package is trying to reach.
+      - name: Generate an SBOM
+        run: |
+          dotnet tool install --global CycloneDX --version 6.2.0
+          dotnet CycloneDX src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj \
+            --output ./nupkgs --filename sbom.json --json
+          COMPONENTS=$(python3 -c 'import json;print(len(json.load(open("./nupkgs/sbom.json")).get("components",[])))')
+          test "$COMPONENTS" -gt 0 || { echo "::error::The SBOM lists no components."; exit 1; }
+          echo "SBOM lists $COMPONENTS components."
+
+      # Proves these bytes came from this workflow at this commit. Worth being accurate about what
+      # that buys: nuget.org neither surfaces nor verifies it, so it covers the artifact attached
+      # to the GitHub release, checkable with `gh attestation verify`. Do not overclaim it.
+      - name: Attest the package build provenance
+        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: ./nupkgs/*.nupkg
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
