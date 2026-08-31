@@ -34,7 +34,9 @@ public class PwaComposer : IComposer
         builder.Services.AddSingleton<IPwaReadinessService>(sp => sp.GetRequiredService<PwaReadinessService>());
         builder.Services.AddSingleton<IPwaStartupReadinessService>(sp => sp.GetRequiredService<PwaReadinessService>());
 
-        builder.Services.AddHttpClient();
+        // The named probe client, and no bare AddHttpClient(). An unnamed client would be an
+        // ungoverned one, and the readiness probe is the only outbound request this package makes.
+        builder.Services.AddPwaIconProbe();
 
         builder.AddNotificationAsyncHandler<UmbracoApplicationStartingNotification, PwaMigrationHandler>();
         builder.AddNotificationAsyncHandler<UmbracoApplicationStartedNotification, PwaOneShotCheckHandler>();

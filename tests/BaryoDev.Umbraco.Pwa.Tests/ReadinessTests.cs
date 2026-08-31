@@ -135,14 +135,26 @@ public class ReadinessTests
     }
 
     [Fact]
-    public async Task A_remote_icon_request_exception_becomes_a_failed_check()
+    public async Task A_remote_icon_request_exception_becomes_a_failed_check_without_leaking_the_exception()
     {
+        // This used to interpolate ex.Message straight into the detail, which is rendered in the
+        // backoffice and written to the application log. HttpClient messages name hosts, ports and
+        // TLS particulars, so a probe of an internal address answered with a description of it.
         var readiness = await CheckRemoteWith(new StubHttpMessageHandler(_ =>
-            throw new InvalidOperationException("connection refused")));
+            throw new InvalidOperationException("connection refused to 10.0.0.5:6379")));
 
         var check = readiness.Checks.Single(c => c.Name == "Icon 192x192");
         check.Passed.ShouldBeFalse();
-        check.Detail.ShouldContain("InvalidOperationException: connection refused");
+
+        // The site owner is told what to do about it.
+        check.Detail.ShouldContain("could not be reached");
+
+        // And nothing about what the server saw. Asserted piece by piece: a single check on the
+        // whole message would still pass if only the host survived.
+        check.Detail.ShouldNotContain("InvalidOperationException");
+        check.Detail.ShouldNotContain("connection refused");
+        check.Detail.ShouldNotContain("10.0.0.5");
+        check.Detail.ShouldNotContain("6379");
     }
 
     [Fact]
