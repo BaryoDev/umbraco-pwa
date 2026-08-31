@@ -47,6 +47,18 @@ hop. Configure icons with site-relative paths and no outbound request happens at
 This paragraph used to say there was no outbound call at runtime. That was not true, and it is
 the kind of claim worth checking rather than trusting: see #88.
 
+**Pages rendered for a signed-in visitor are not cached.** Cache Storage belongs to the browser
+profile, not to the visitor, so anything cached while one person was signed in would be served to
+whoever uses that browser next. The package marks those responses `Cache-Control: private` and the
+service worker declines to store them. This covers content protected through Umbraco's public
+access, and any other sign-in, because the check is whether anyone is authenticated rather than
+which scheme authenticated them. It never overrides a `Cache-Control` header the site set itself.
+
+If your site gates content in code rather than through public access and does not sign the visitor
+in, nothing can infer that those pages are private: add their paths to
+`BaryoDev:Pwa:ServiceWorker:SkipPaths`. A readiness warning appears if you turn the protection off
+while the site has protected content and has excluded nothing.
+
 **The backoffice endpoints require the Settings section.** `/summary`, `/installs` and
 `/readiness` are behind `SectionAccessSettings`. Reaching any of them without a backoffice session
 is a vulnerability.

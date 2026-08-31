@@ -41,17 +41,20 @@ internal class PwaReadinessService : IPwaReadinessService, IPwaStartupReadinessS
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IWebHostEnvironment _environment;
     private readonly IDocumentUrlService _documentUrls;
+    private readonly IPublicAccessService _publicAccess;
 
     public PwaReadinessService(
         IOptionsMonitor<PwaOptions> options,
         IHttpClientFactory httpClientFactory,
         IWebHostEnvironment environment,
-        IDocumentUrlService documentUrls)
+        IDocumentUrlService documentUrls,
+        IPublicAccessService publicAccess)
     {
         _options = options;
         _httpClientFactory = httpClientFactory;
         _environment = environment;
         _documentUrls = documentUrls;
+        _publicAccess = publicAccess;
     }
 
     /// <summary>
@@ -179,6 +182,8 @@ internal class PwaReadinessService : IPwaReadinessService, IPwaStartupReadinessS
             Detail = startDetail,
         });
 
+        checks.Add(MemberContentCheck(o));
+
         checks.Add(new PwaCheck
         {
             Name = "Maskable icon",
@@ -188,6 +193,59 @@ internal class PwaReadinessService : IPwaReadinessService, IPwaStartupReadinessS
                 : "Optional. Without one, Android crops your icon into a white circle.",
             Advisory = true,
         });
+    }
+
+    /// <summary>
+    /// Warns when a site has member-protected content that nothing is keeping out of the cache.
+    /// </summary>
+    /// <remarks>
+    /// Cache Storage is scoped to the origin and the browser profile, not to the visitor, so a
+    /// member's pages cached there are served to whoever picks the device up next.
+    ///
+    /// Only warns when the site has actually turned the protection off, because the middleware
+    /// handles this by default and a check that nags a correctly configured site is a check people
+    /// learn to ignore. It cannot see membership implemented in code rather than through Umbraco's
+    /// public access, which is what the SkipPaths documentation is for.
+    /// </remarks>
+    private PwaCheck MemberContentCheck(PwaOptions o)
+    {
+        var hasProtectedContent = HasProtectedContent();
+        var skip = o.ServiceWorker.SkipPaths;
+        var skipCoversOnlyBackoffice = skip.Count <= 1;
+
+        var exposed = hasProtectedContent
+            && !o.MarkSignedInResponsesPrivate
+            && skipCoversOnlyBackoffice;
+
+        return new PwaCheck
+        {
+            Name = "Member content stays out of the cache",
+            Passed = !exposed,
+            Advisory = true,
+            Detail = exposed
+                ? "This site has member-protected content, MarkSignedInResponsesPrivate is off, "
+                  + "and SkipPaths still only excludes the backoffice. Cached pages are shared by "
+                  + "everyone who uses the browser, so a member's pages can be served to the next "
+                  + "person on that device. Turn the setting back on, or add your member paths to "
+                  + "BaryoDev:Pwa:ServiceWorker:SkipPaths."
+                : hasProtectedContent
+                    ? "Responses for signed-in visitors are marked private, so the worker does not store them."
+                    : "No member-protected content configured.",
+        };
+    }
+
+    /// <summary>Whether Umbraco has any public access rules at all.</summary>
+    private bool HasProtectedContent()
+    {
+        try
+        {
+            return _publicAccess.GetAll().Any();
+        }
+        catch
+        {
+            // Never fail the whole preflight because one lookup threw.
+            return false;
+        }
     }
 
     /// <summary>

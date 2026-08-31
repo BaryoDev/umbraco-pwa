@@ -52,6 +52,68 @@ public class ReadinessTests
         }
     }
 
+    private async Task<PwaCheck> MemberCheck(
+        bool hasProtectedContent,
+        bool markPrivate = true,
+        params string[] skipPaths)
+    {
+        var options = new PwaOptions
+        {
+            MarkSignedInResponsesPrivate = markPrivate,
+            Manifest = new PwaManifestOptions { Name = "Member check", StartUrl = "/demo.html" },
+        };
+
+        if (skipPaths.Length > 0)
+        {
+            options.ServiceWorker.SkipPaths = [.. skipPaths];
+        }
+
+        var service = new PwaReadinessService(
+            new StaticOptionsMonitor(options),
+            new StubHttpClientFactory(new StubHttpMessageHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.NotFound))),
+            _site.Resolve<IWebHostEnvironment>(),
+            _site.Resolve<IDocumentUrlService>(),
+            hasProtectedContent ? new StubPublicAccess("/members") : new StubPublicAccess());
+
+        var context = new DefaultHttpContext();
+        context.Request.Scheme = "https";
+        context.Request.Host = new HostString("example.test");
+
+        var readiness = await service.CheckAsync(context.Request);
+        return readiness.Checks.Single(c => c.Name == "Member content stays out of the cache");
+    }
+
+    [Fact]
+    public async Task A_site_that_turned_the_protection_off_and_excluded_nothing_is_warned()
+    {
+        var check = await MemberCheck(hasProtectedContent: true, markPrivate: false);
+
+        check.Passed.ShouldBeFalse();
+        check.Advisory.ShouldBeTrue("a warning, not something that blocks installation");
+        check.Detail.ShouldContain("SkipPaths");
+    }
+
+    [Fact]
+    public async Task A_site_with_the_protection_on_is_not_warned()
+    {
+        // The default. A check that nags a correctly configured site is a check people learn to
+        // ignore, which costs more than it saves.
+        (await MemberCheck(hasProtectedContent: true, markPrivate: true)).Passed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_site_that_excluded_its_member_paths_by_hand_is_not_warned()
+    {
+        (await MemberCheck(hasProtectedContent: true, markPrivate: false, "/umbraco/", "/members/"))
+            .Passed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_site_with_no_protected_content_is_never_warned()
+    {
+        (await MemberCheck(hasProtectedContent: false, markPrivate: false)).Passed.ShouldBeTrue();
+    }
+
     private async Task<PwaReadiness> CheckRemoteWith(
         HttpMessageHandler handler,
         CancellationToken ct = default)
@@ -74,7 +136,8 @@ public class ReadinessTests
             new StaticOptionsMonitor(options),
             new StubHttpClientFactory(handler),
             _site.Resolve<IWebHostEnvironment>(),
-            _site.Resolve<IDocumentUrlService>());
+            _site.Resolve<IDocumentUrlService>(),
+            new StubPublicAccess());
 
         var context = new DefaultHttpContext();
         context.Request.Scheme = "https";
