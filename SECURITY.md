@@ -9,6 +9,12 @@ or the contact route in the [BaryoDev policy](https://github.com/BaryoDev/.githu
 Expect an acknowledgement within a few days. This is a small project, so please allow reasonable
 time for a fix before disclosing.
 
+## Threat model
+
+[THREAT-MODEL.md](THREAT-MODEL.md) names the four trust boundaries, what is enforced at each, and
+where the thin spots are. It is what a security review should scope from, and it lists the places
+worth attacking first rather than waiting for someone to find them.
+
 ## What this package touches
 
 Worth knowing when judging whether something is a vulnerability here.
