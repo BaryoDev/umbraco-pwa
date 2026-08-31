@@ -4,8 +4,11 @@ Notable changes to `BaryoDev.Umbraco.Pwa`. Follows [Keep a Changelog](https://ke
 and [semantic versioning](https://semver.org).
 
 Additions to the public surface are a minor. Anything removed or changed in place is a major, and
-gets a migration note here. The `.approved.txt` files in
-`BaryoDev.Umbraco.Pwa.ApiApproval.Tests` are what decide which of those applies.
+gets a migration note here.
+
+There are five public surfaces, not one: the assembly API, the configuration keys, the report
+contract, the database table and the generated asset URLs. [VERSIONING.md](VERSIONING.md) says what
+each covers and which test gates it.
 
 ## [Unreleased]
 
@@ -47,6 +50,13 @@ gets a migration note here. The `.approved.txt` files in
 
 ### Added
 
+- **[VERSIONING.md](VERSIONING.md).** What a version number promises from 1.0, named surface by
+  surface, with the test that gates each one. Four of the five are not the assembly API and only
+  that one had a gate.
+- **A schema gate on the install table.** Every column, type, nullability and both indexes are
+  pinned. A property added to the DTO without a migration step reaches a fresh install and never
+  reaches an upgraded one, and until now nothing noticed. It also holds the schema half of
+  `SECURITY.md`'s promise that no column identifies a visitor.
 - `PwaOptions.MarkSignedInResponsesPrivate`, an addition to the public surface. ([#89])
 - `PwaOptions.MaxReportsPerMinute`, and the filter attribute on the report action. Both are
   additions to the public surface. ([#36])
