@@ -32,6 +32,9 @@ public class PwaReportController : ControllerBase
     // to 100 characters only after the JSON has been parsed, so without this a caller can have the
     // server materialise megabytes before anything gets to reject it.
     [RequestSizeLimit(MaxBodyBytes)]
+    // Bounds how many rows one caller can have stored. Answers 202 when it declines, same as
+    // always: see PwaReportRateLimitFilter for why that matters.
+    [ServiceFilter(typeof(PwaReportRateLimitFilter))]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     public async Task<IActionResult> Report(
         [FromBody] PwaReportRequest report,

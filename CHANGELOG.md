@@ -22,6 +22,12 @@ gets a migration note here. The `.approved.txt` files in
 - **`deviceId` is checked against a character set, not only truncated.** It arrives from an
   anonymous endpoint and is rendered into an administrator's dashboard. The escaping there was the
   only thing holding, while `SECURITY.md` described both halves as load-bearing. ([#98])
+- **The report endpoint is rate limited per caller.** It inserts a row for each novel `deviceId`,
+  which the client generates, so a loop with fresh ids inserted rows without limit. Default 120 a
+  minute per address, `BaryoDev:Pwa:MaxReportsPerMinute`, zero to turn it off. The address
+  partitions the limiter and is never stored, so `SECURITY.md`'s promise that no column identifies
+  a visitor still holds. Declining still answers `202`, because a distinguishable response would
+  say where the limit is and when it resets. ([#36])
 - **The report body is capped at 4KB.** `deviceId` is cut to 100 characters only after the JSON has
   been parsed. ([#98])
 - **`System.Security.Cryptography.Xml` is pinned per target framework.** Umbraco resolves 8.0.0 on
@@ -32,6 +38,8 @@ gets a migration note here. The `.approved.txt` files in
 
 ### Added
 
+- `PwaOptions.MaxReportsPerMinute`, and the filter attribute on the report action. Both are
+  additions to the public surface. ([#36])
 - `[RequestSizeLimit(4096)]` on the report action, which is an addition to the public surface.
   ([#98])
 
@@ -202,6 +210,7 @@ First release.
 [#76]: https://github.com/BaryoDev/umbraco-pwa/pull/76
 [#78]: https://github.com/BaryoDev/umbraco-pwa/pull/78
 [#79]: https://github.com/BaryoDev/umbraco-pwa/pull/79
+[#36]: https://github.com/BaryoDev/umbraco-pwa/issues/36
 [#88]: https://github.com/BaryoDev/umbraco-pwa/issues/88
 [#90]: https://github.com/BaryoDev/umbraco-pwa/pull/90
 [#95]: https://github.com/BaryoDev/umbraco-pwa/pull/95

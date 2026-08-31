@@ -38,6 +38,10 @@ public class PwaComposer : IComposer
         // ungoverned one, and the readiness probe is the only outbound request this package makes.
         builder.Services.AddPwaIconProbe();
 
+        // Singleton: the limiter holds the per-caller windows, so a new instance per request would
+        // be a limiter that never limits.
+        builder.Services.AddSingleton<Controllers.PwaReportRateLimitFilter>();
+
         builder.AddNotificationAsyncHandler<UmbracoApplicationStartingNotification, PwaMigrationHandler>();
         builder.AddNotificationAsyncHandler<UmbracoApplicationStartedNotification, PwaOneShotCheckHandler>();
     }
