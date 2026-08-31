@@ -34,6 +34,28 @@ public class PwaOptions
     /// </summary>
     public bool ServeAssets { get; set; } = true;
 
+    /// <summary>
+    /// The most install reports one caller can have stored per minute. Zero turns the limit off.
+    /// </summary>
+    /// <remarks>
+    /// The report endpoint is anonymous by necessity, and it inserts a row for each novel
+    /// <c>deviceId</c>, which the client generates. A loop with fresh ids inserts rows without
+    /// limit. <see cref="RetentionDays"/> is the real bound, because a table that deletes rows not
+    /// seen for N days cannot grow forever whatever is posted at it. This is the cheaper first
+    /// bound in front of it.
+    ///
+    /// Deliberately generous. Genuine traffic is one report per launch per device, but the
+    /// partition is the caller's address, and every visitor behind one corporate proxy or CDN
+    /// egress shares it. A tight limit would drop real reports from exactly the kind of site most
+    /// worth counting. If your site sits behind a proxy, configure forwarded headers so this sees
+    /// the visitor rather than the proxy, or set this to zero and rely on retention.
+    ///
+    /// The address is used to partition the limiter and is never written anywhere.
+    /// <c>SECURITY.md</c> promises no column identifies a visitor, and that stays true: this
+    /// touches an address in memory for the length of one request.
+    /// </remarks>
+    public int MaxReportsPerMinute { get; set; } = 120;
+
     public PwaManifestOptions Manifest { get; set; } = new();
 
     public PwaServiceWorkerOptions ServiceWorker { get; set; } = new();
