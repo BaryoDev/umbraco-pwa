@@ -22,6 +22,15 @@ gets a migration note here. The `.approved.txt` files in
 - **`deviceId` is checked against a character set, not only truncated.** It arrives from an
   anonymous endpoint and is rendered into an administrator's dashboard. The escaping there was the
   only thing holding, while `SECURITY.md` described both halves as load-bearing. ([#98])
+- **Pages rendered for a signed-in visitor are no longer cached by the service worker.** Cache
+  Storage belongs to the browser profile rather than the visitor, so a member's pages were served
+  to whoever picked the device up next. Umbraco sends no cache headers of its own, measured against
+  a real instance, so the worker had nothing telling it to decline. The package now marks those
+  responses `Cache-Control: private` and the worker's existing check does the rest, so the service
+  worker is unchanged. A response that already carries a `Cache-Control` header is never
+  overridden. `BaryoDev:Pwa:MarkSignedInResponsesPrivate` turns it off. ([#89])
+- **A readiness warning** when a site has member-protected content, has turned that setting off,
+  and has excluded nothing through `SkipPaths`. ([#89])
 - **The report endpoint is rate limited per caller.** It inserts a row for each novel `deviceId`,
   which the client generates, so a loop with fresh ids inserted rows without limit. Default 120 a
   minute per address, `BaryoDev:Pwa:MaxReportsPerMinute`, zero to turn it off. The address
@@ -38,6 +47,7 @@ gets a migration note here. The `.approved.txt` files in
 
 ### Added
 
+- `PwaOptions.MarkSignedInResponsesPrivate`, an addition to the public surface. ([#89])
 - `PwaOptions.MaxReportsPerMinute`, and the filter attribute on the report action. Both are
   additions to the public surface. ([#36])
 - `[RequestSizeLimit(4096)]` on the report action, which is an addition to the public surface.
@@ -212,6 +222,7 @@ First release.
 [#79]: https://github.com/BaryoDev/umbraco-pwa/pull/79
 [#36]: https://github.com/BaryoDev/umbraco-pwa/issues/36
 [#88]: https://github.com/BaryoDev/umbraco-pwa/issues/88
+[#89]: https://github.com/BaryoDev/umbraco-pwa/issues/89
 [#90]: https://github.com/BaryoDev/umbraco-pwa/pull/90
 [#95]: https://github.com/BaryoDev/umbraco-pwa/pull/95
 [#98]: https://github.com/BaryoDev/umbraco-pwa/pull/98

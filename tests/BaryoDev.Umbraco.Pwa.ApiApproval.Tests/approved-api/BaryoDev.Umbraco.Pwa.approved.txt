@@ -135,6 +135,7 @@ namespace BaryoDev.Umbraco.Pwa
         public PwaOptions() { }
         public BaryoDev.Umbraco.Pwa.PwaInstallPromptOptions InstallPrompt { get; set; }
         public BaryoDev.Umbraco.Pwa.PwaManifestOptions Manifest { get; set; }
+        public bool MarkSignedInResponsesPrivate { get; set; }
         public int MaxReportsPerMinute { get; set; }
         public int RetentionDays { get; set; }
         public bool ServeAssets { get; set; }

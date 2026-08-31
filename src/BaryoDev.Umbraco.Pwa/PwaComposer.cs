@@ -38,6 +38,13 @@ public class PwaComposer : IComposer
         // ungoverned one, and the readiness probe is the only outbound request this package makes.
         builder.Services.AddPwaIconProbe();
 
+        // Marks visitor-specific responses private so the worker declines to cache them. See
+        // PwaPrivateResponseMiddleware: Umbraco sends no cache headers, so without this the worker
+        // has nothing to go on.
+        builder.Services.AddSingleton<
+            Microsoft.AspNetCore.Hosting.IStartupFilter,
+            Services.PwaPrivateResponseStartupFilter>();
+
         // Singleton: the limiter holds the per-caller windows, so a new instance per request would
         // be a limiter that never limits.
         builder.Services.AddSingleton<Controllers.PwaReportRateLimitFilter>();

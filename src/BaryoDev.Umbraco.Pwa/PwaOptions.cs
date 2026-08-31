@@ -56,6 +56,23 @@ public class PwaOptions
     /// </remarks>
     public int MaxReportsPerMinute { get; set; } = 120;
 
+    /// <summary>
+    /// Mark responses rendered for a signed-in visitor as <c>Cache-Control: private</c>, so the
+    /// service worker does not store them.
+    /// </summary>
+    /// <remarks>
+    /// On by default, and it is a security default rather than a preference. Cache Storage is
+    /// scoped to the origin and the browser profile, not to the visitor, so a member's pages cached
+    /// there are served to whoever picks the device up next. Umbraco sends no cache headers of its
+    /// own, so without this the worker sees nothing telling it to decline.
+    ///
+    /// A response that already carries a <c>Cache-Control</c> header is never overridden.
+    ///
+    /// Turn it off only if you are setting the header yourself, or you have decided that pages
+    /// behind your sign-in are not sensitive on a shared device.
+    /// </remarks>
+    public bool MarkSignedInResponsesPrivate { get; set; } = true;
+
     public PwaManifestOptions Manifest { get; set; } = new();
 
     public PwaServiceWorkerOptions ServiceWorker { get; set; } = new();
@@ -165,6 +182,17 @@ public class PwaServiceWorkerOptions
     /// a cached backoffice is a stale editing experience and a way to serve one user's data
     /// to another on a shared machine.
     /// </summary>
+    /// <remarks>
+    /// The same reasoning applies to anything behind a sign-in. Cache Storage is scoped to the
+    /// origin and the browser profile, not to the visitor, so a page cached while one person was
+    /// signed in is served to whoever uses that browser next.
+    ///
+    /// Content protected through Umbraco's public access is already handled: see
+    /// <see cref="PwaOptions.MarkSignedInResponsesPrivate"/>. If your site gates content in code
+    /// or through its own membership, Umbraco does not know those pages are protected and nothing
+    /// can infer it, so add their paths here. A prefix is enough:
+    /// <c>"SkipPaths": [ "/umbraco/", "/members/", "/account/" ]</c>.
+    /// </remarks>
     public List<string> SkipPaths { get; set; } = new() { "/umbraco/" };
 
     /// <summary>Shown when a navigation fails offline and nothing is cached.</summary>
