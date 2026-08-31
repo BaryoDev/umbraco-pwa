@@ -179,13 +179,16 @@ public class ServiceWorkerBehaviourTests
     [Fact]
     public async Task Activation_purges_stale_caches_and_preserves_current_shell_and_api_caches()
     {
-        _site.EnableNetwork();
-        var page = await _site.NewPageAsync();
-        await page.GotoAsync(LiveSiteFixture.EntryPage);
-        await page.EvaluateAsync($"async () => {{ for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); for (const k of await caches.keys()) await caches.delete(k); await caches.open('stale-build').then(c => c.put('/stale', new Response('stale'))); await caches.open('{LiveSiteFixture.ShellCache}').then(c => c.put('/shell-control', new Response('shell'))); await caches.open('{LiveSiteFixture.ApiCache}').then(c => c.put('{LiveSiteFixture.ApiRoute}', new Response('api'))); }}");
-
-        await page.ReloadAsync();
-        await page.EvaluateAsync("async () => { await navigator.serviceWorker.register('/sw.js'); await navigator.serviceWorker.ready; }");
+        var (page, _) = await InstalledSession(async page =>
+        {
+            await page.EvaluateAsync($@"async () => {{
+                await caches.open('stale-build').then(c => c.put('/stale', new Response('stale')));
+                await caches.open('{LiveSiteFixture.ShellCache}')
+                    .then(c => c.put('/shell-control', new Response('shell')));
+                await caches.open('{LiveSiteFixture.ApiCache}')
+                    .then(c => c.put('{LiveSiteFixture.ApiRoute}', new Response('api')));
+            }}");
+        });
         await Settle(page);
 
         (await CacheNames(page)).ShouldNotContain("stale-build");
@@ -206,7 +209,8 @@ public class ServiceWorkerBehaviourTests
         return page;
     }
 
-    private async Task<(IPage Page, Func<Task> GoOffline)> InstalledSession()
+    private async Task<(IPage Page, Func<Task> GoOffline)> InstalledSession(
+        Func<IPage, Task>? seed = null)
     {
         _site.EnableNetwork();
         var page = await _site.NewPageAsync();
@@ -217,6 +221,7 @@ public class ServiceWorkerBehaviourTests
             for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
             for (const k of await caches.keys()) await caches.delete(k);
         }");
+        if (seed is not null) await seed(page);
         await page.ReloadAsync();
 
         // Raced against a timeout on purpose. EvaluateAsync has no default timeout, so a worker
