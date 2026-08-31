@@ -29,3 +29,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    groups:
+      # init, analyze and upload-sarif ship from one repository and CodeQL refuses a mismatched
+      # pair. Ungrouped, Dependabot proposed them as separate pull requests, each of which left a
+      # v4 half beside a v3 half, and both failed. Together they are one green change.
+      codeql:
+        patterns:
+          - "github/codeql-action*"
