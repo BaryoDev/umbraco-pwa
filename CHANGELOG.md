@@ -50,6 +50,9 @@ each covers and which test gates it.
 
 ### Added
 
+- **[THREAT-MODEL.md](THREAT-MODEL.md).** The four trust boundaries, what is enforced at each, and
+  the thin spots named rather than left to be discovered. Written so a review has something to
+  scope from and so a change that moves a boundary shows up as a change to that file.
 - **[VERSIONING.md](VERSIONING.md).** What a version number promises from 1.0, named surface by
   surface, with the test that gates each one. Four of the five are not the assembly API and only
   that one had a gate.
