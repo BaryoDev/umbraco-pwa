@@ -30,8 +30,22 @@ install state, timestamps and a launch count. No IP address, no user agent, no u
 change would let the table answer "who visited", that is a security bug in this project's terms
 even if it leaks nothing externally.
 
-**Nothing leaves the server.** There is no outbound call to any third party at runtime. A version
-of this package that phoned home would be a supply-chain issue, so if you see one, report it.
+**Nothing is reported anywhere.** No telemetry, no analytics, no phone-home. A version of this
+package that reported anything about your site or your visitors to anyone would be a supply-chain
+issue, so if you see one, report it.
+
+**One outbound request exists, and it is not that.** If you configure a manifest icon at an
+absolute `http` or `https` URL, the readiness check fetches it to answer "why is my site not
+offering to install?", because an icon that 404s makes Chrome decline silently. It runs when the
+dashboard is opened and once when the application starts. It goes to the address you configured
+and nowhere else, it sends nothing about your site, and it refuses to connect to anything that is
+not on the public internet: loopback, link-local including cloud instance metadata, private
+ranges, and their IPv6 and NAT64 equivalents. The check runs on the resolved address at connect
+time rather than on the URL, so a hostname that resolves inward is refused too, on every redirect
+hop. Configure icons with site-relative paths and no outbound request happens at all.
+
+This paragraph used to say there was no outbound call at runtime. That was not true, and it is
+the kind of claim worth checking rather than trusting: see #88.
 
 **The backoffice endpoints require the Settings section.** `/summary`, `/installs` and
 `/readiness` are behind `SectionAccessSettings`. Reaching any of them without a backoffice session

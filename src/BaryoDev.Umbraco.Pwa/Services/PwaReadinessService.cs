@@ -248,8 +248,10 @@ internal class PwaReadinessService : IPwaReadinessService, IPwaStartupReadinessS
 
         try
         {
-            using var client = _httpClientFactory.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(5);
+            // The named client, which refuses to connect to anything off the public internet.
+            // Not disposed: the factory owns its lifetime and disposing it here defeats the
+            // handler pooling it exists to provide.
+            var client = _httpClientFactory.CreateClient(PwaIconProbe.ClientName);
 
             using var response = await client.GetAsync(remote, HttpCompletionOption.ResponseHeadersRead, ct);
 
@@ -264,9 +266,22 @@ internal class PwaReadinessService : IPwaReadinessService, IPwaStartupReadinessS
         {
             throw;
         }
-        catch (Exception ex)
+        catch (HttpRequestException ex) when (ex.InnerException is NonPublicAddressException)
         {
-            return (false, $"{ex.GetType().Name}: {ex.Message}");
+            // Worth naming, because it is the one failure the site owner caused and can fix. It
+            // discloses nothing: they configured the address.
+            return (false, "it is not a public address, so a visitor's browser could not load it either");
+        }
+        catch (TaskCanceledException)
+        {
+            return (false, $"it did not answer within {PwaIconProbe.Timeout.TotalSeconds:0} seconds");
+        }
+        catch (Exception)
+        {
+            // Deliberately not the exception message. This detail is rendered in the backoffice
+            // and written to the application log, and HttpClient messages name hosts, ports and
+            // TLS particulars. "Could not be reached" is everything a site owner can act on.
+            return (false, "it could not be reached");
         }
     }
 

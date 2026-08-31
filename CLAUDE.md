@@ -109,8 +109,15 @@ both, along with the version bump it implies.
 
 ## 5. Constraints that do not move
 
-1. **Nothing leaves the server.** A feature that phones anywhere is not a feature this package can
-   have. It is the whole pitch against hosted alternatives.
+1. **Nothing is reported anywhere.** No telemetry, no analytics, no phone-home. A feature that
+   reports anything about a site or its visitors to anyone is not a feature this package can have.
+   It is the whole pitch against hosted alternatives.
+
+   The one exception is the readiness check fetching a manifest icon the site owner configured at
+   an absolute URL, which is a request to an address they chose rather than a report to one we
+   chose. It is bounded by `PwaIconProbe`, which refuses to connect to anything off the public
+   internet. Do not add a second exception without amending this list in writing first: the value
+   of the constraint is entirely in it having been kept. See #60 and #88.
 2. **No column that identifies a visitor.** No IP, no user agent, no user id, no location, at any
    resolution. Every field is a counter or a timestamp hung off the browser-generated `deviceId`.
    `SECURITY.md` promises this and it is checkable against the schema.
