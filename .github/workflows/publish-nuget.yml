@@ -359,30 +359,13 @@ jobs:
           fi
           echo "Trusted publishing OK: short-lived key issued."
 
-      # Publication requires a tag push, and only a tag push. The tag-match step above is itself
-      # conditional on a tag ref, so a dispatched run with dry_run unticked would otherwise reach
-      # push with the version check skipped rather than passed.
-      - name: Publish
+      # Before Publish, deliberately. This is the only step that can fail on the contents of the
+      # repository rather than on the build, and a push to nuget.org cannot be undone: a version is
+      # spent the moment it is accepted. Discovering a missing changelog section after the package
+      # is public would leave the release that the attestation points at permanently uncreatable.
+      - name: Prepare the release notes
         if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.dry_run }}
         env:
-          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
-        run: |
-          dotnet nuget push ./nupkgs/*.nupkg \
-            --api-key "$NUGET_API_KEY" \
-            --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
-
-      # The attestation covers the nupkg, and until now nothing published the nupkg anywhere it
-      # could be fetched from. CHANGELOG.md and the attest step above both told a reader to check
-      # it against "the artifact attached to the GitHub release", and there were four tags and no
-      # releases: the upload-artifact copy expires, and is not reachable without a GitHub login.
-      #
-      # Notes come from the tag's own CHANGELOG section rather than being generated, so the release
-      # says the same thing the repository does.
-      - name: Create the GitHub release
-        if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.dry_run }}
-        env:
-          GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
           VERSION="${TAG#v}"
@@ -392,8 +375,10 @@ jobs:
             f { print }
           ' CHANGELOG.md > release-notes.md
 
-          if [ ! -s release-notes.md ]; then
-            echo "::error::No CHANGELOG section found for $VERSION, so the release would have no notes." && exit 1
+          # Not -s. awk prints the blank line that follows the heading, so a section with no notes
+          # produces a file that is non-empty and says nothing.
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::CHANGELOG.md has no notes under ## [$VERSION], so the release would say nothing." && exit 1
           fi
 
           {
@@ -408,5 +393,28 @@ jobs:
             cat release-notes.md
           } > body.md
 
+          echo "Release notes ready: $(grep -c '' body.md) lines."
+
+      # Publication requires a tag push, and only a tag push. The tag-match step above is itself
+      # conditional on a tag ref, so a dispatched run with dry_run unticked would otherwise reach
+      # push with the version check skipped rather than passed.
+      - name: Publish
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.dry_run }}
+        env:
+          NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
+        run: |
+          dotnet nuget push ./nupkgs/*.nupkg \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      # Uploads only. Everything that can fail on bad input already ran before Publish, so this
+      # step cannot be the thing that discovers the changelog is missing.
+      - name: Create the GitHub release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
           gh release create "$TAG" ./nupkgs/*.nupkg ./nupkgs/sbom.json \
             --title "$TAG" --notes-file body.md --verify-tag
