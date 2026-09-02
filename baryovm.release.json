@@ -5,6 +5,7 @@
     "src",
     "tests",
     "scripts",
+    "deploy",
     "README.md",
     "icon.png"
   ],
@@ -17,9 +18,13 @@
     "umbraco/Logs",
     "._*"
   ],
-  "//verify": "Runs from the login shell's home, not remoteRoot, so the cd is load-bearing: without it this exits 127 and the release fails for the wrong reason. Not a health URL. scripts/check-live-demo.sh asserts the demo actually demonstrates the package: manifest link, generated client, the offline fallback, and that the root is not Umbraco's installer screen. The demo served that installer screen through 0.1.0 and 0.2.0 as a perfectly valid 200, which is exactly what a liveness probe cannot see.",
+  "//postDeploy": "deploy/docker-compose.yml is a reference copy. The live compose file sits beside .env in the stack directory, and BaryoVM refuses to sync onto that directory because rsync --delete would take the .env with it, so the repository cannot own the deployed file. It can refuse to release while the two disagree, which is the next best thing and is what this does. Paths are absolute until BaryoDev/BaryoVM#58 lands, which makes postDeploy and verify run from remoteRoot.",
+  "postDeploy": [
+    "cmp -s /home/opc/umbraco-pwa/deploy/docker-compose.yml /home/opc/umbraco-pwa/docker-compose.yml || { echo 'deploy/docker-compose.yml in the repository does not match the file this stack runs. Reconcile them before releasing: see issue #123.' >&2; exit 1; }"
+  ],
+  "//verify": "Runs from remoteRoot, so paths are relative to the repository like every other manifest path. Not a health URL. scripts/check-live-demo.sh asserts the demo actually demonstrates the package: manifest link, generated client, the offline fallback, and that the root is not Umbraco's installer screen. The demo served that installer screen through 0.1.0 and 0.2.0 as a perfectly valid 200, which is exactly what a liveness probe cannot see.",
   "verify": [
-    "cd /home/opc/umbraco-pwa && sh scripts/check-live-demo.sh http://127.0.0.1:5301"
+    "sh scripts/check-live-demo.sh http://127.0.0.1:5301"
   ],
   "builds": [
     {
