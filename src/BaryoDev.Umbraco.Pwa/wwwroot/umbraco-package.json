@@ -1,7 +1,7 @@
 {
   "$schema": "../../umbraco-package-schema.json",
   "name": "BaryoDev.Pwa",
-  "version": "0.1.0",
+  "version": "0.5.0",
   "extensions": [
     {
       "type": "dashboard",
