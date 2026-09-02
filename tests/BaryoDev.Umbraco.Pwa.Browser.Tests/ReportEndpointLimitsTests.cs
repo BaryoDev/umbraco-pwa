@@ -27,17 +27,27 @@ public class ReportEndpointLimitsTests
 
     private static HttpClient Client() => new() { Timeout = TimeSpan.FromSeconds(15) };
 
+    /// <summary>The cap the controller sets, and the three documents describe.</summary>
+    private const int CapBytes = 4096;
+
     [Fact]
-    public async Task A_body_over_the_cap_is_refused_before_it_is_parsed()
+    public async Task A_body_just_over_the_cap_is_refused_before_it_is_parsed()
     {
+        // Just over, not comfortably over. A 64KB body proves the cap is somewhere below 64KB,
+        // which would still pass if it had drifted to 32KB, and the drift is the thing worth
+        // catching: the constant and the documents have to agree.
         using var client = Client();
-        var body = "{\"deviceId\":\"" + new string('a', 8192) + "\",\"platform\":\"web\"}";
+        var body = Envelope(new string('a', CapBytes));
+        Encoding.UTF8.GetByteCount(body).ShouldBeGreaterThan(CapBytes);
         using var content = new StringContent(body, Encoding.UTF8, "application/json");
 
         var response = await client.PostAsync(_site.BaseUrl + Report, content);
 
         response.StatusCode.ShouldBe(HttpStatusCode.RequestEntityTooLarge);
     }
+
+    private static string Envelope(string deviceId) =>
+        "{\"deviceId\":\"" + deviceId + "\",\"platform\":\"web\"}";
 
     [Fact]
     public async Task A_body_inside_the_cap_is_still_accepted()
