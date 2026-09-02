@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Umbraco.Cms.Core.Services;
 
 namespace BaryoDev.Umbraco.Pwa.Services;
 
@@ -28,16 +27,13 @@ internal sealed class PwaPrivateResponseMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly IOptionsMonitor<PwaOptions> _options;
-    private readonly IPublicAccessService _publicAccess;
 
     public PwaPrivateResponseMiddleware(
         RequestDelegate next,
-        IOptionsMonitor<PwaOptions> options,
-        IPublicAccessService publicAccess)
+        IOptionsMonitor<PwaOptions> options)
     {
         _next = next;
         _options = options;
-        _publicAccess = publicAccess;
     }
 
     public Task InvokeAsync(HttpContext context)
@@ -53,15 +49,14 @@ internal sealed class PwaPrivateResponseMiddleware
         // response actually starts. By then the pipeline has finished and context.User is set.
         context.Response.OnStarting(static state =>
         {
-            var (ctx, publicAccess) = ((HttpContext, IPublicAccessService))state;
-            Apply(ctx, publicAccess);
+            Apply((HttpContext)state);
             return Task.CompletedTask;
-        }, (context, _publicAccess));
+        }, context);
 
         return _next(context);
     }
 
-    private static void Apply(HttpContext context, IPublicAccessService publicAccess)
+    private static void Apply(HttpContext context)
     {
         // Never overrides a site that has already said what it wants. If someone has set
         // Cache-Control deliberately, that decision is theirs and it is already correct input for
@@ -71,7 +66,7 @@ internal sealed class PwaPrivateResponseMiddleware
             return;
         }
 
-        if (!IsVisitorSpecific(context, publicAccess))
+        if (!IsVisitorSpecific(context))
         {
             return;
         }
@@ -83,38 +78,28 @@ internal sealed class PwaPrivateResponseMiddleware
         context.Response.Headers.CacheControl = "private";
     }
 
-    private static bool IsVisitorSpecific(HttpContext context, IPublicAccessService publicAccess)
+    private static bool IsVisitorSpecific(HttpContext context)
     {
         // Anyone signed in at all, not members specifically. A response rendered for an
         // authenticated visitor may be personalised whatever scheme signed them in, and a site
         // with its own membership is exactly the case a member-cookie check would miss.
-        if (context.User?.Identity?.IsAuthenticated == true)
+        //
+        // Every identity, not ClaimsPrincipal.Identity, which returns the first one only.
+        // Umbraco's PreviewAuthenticationMiddleware runs ahead of UseAuthentication and appends
+        // the backoffice identity with AddIdentity, so on a preview render the anonymous identity
+        // is the one in front and the editor reads as signed out.
+        if (context.User?.Identities.Any(i => i.IsAuthenticated) == true)
         {
             return true;
         }
 
-        // The path is protected even though nobody is signed in. Umbraco normally redirects to a
-        // login page before this, so it is the misconfiguration case rather than the common one,
-        // and it is cheap to be sure about.
-        //
-        // GetAll is served from Umbraco's cache and is empty on most sites, so this costs a list
-        // check on the ordinary request rather than a lookup.
-        try
-        {
-            if (!publicAccess.GetAll().Any())
-            {
-                return false;
-            }
-
-            return publicAccess.IsProtected(context.Request.Path.Value ?? "/").Success;
-        }
-        catch
-        {
-            // A readiness answer is not worth failing a page render over. Erring towards not
-            // marking is right here: the signed-in branch above is what covers the real case, and
-            // this one is the belt to its braces.
-            return false;
-        }
+        // There was a second branch here that asked IPublicAccessService whether the path was
+        // protected, for the case where nobody is signed in. It never fired. That overload takes
+        // a comma-separated content path of the form -1,1055,1060 and was being handed
+        // Request.Path, which yields no node ids, so the lookup always failed. Removed rather
+        // than repaired: Umbraco redirects an unauthenticated visitor off protected content
+        // before this runs, and the check above already covers the member who is signed in.
+        return false;
     }
 }
 

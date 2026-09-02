@@ -31,14 +31,18 @@ public class PrivateResponseMiddlewareTests
         string path = "/members/dashboard",
         string? existingHeader = null,
         bool optionOn = true,
-        params string[] protectedPaths)
+        ClaimsPrincipal? user = null)
     {
         var response = new FiringResponse();
         var context = new DefaultHttpContext();
         context.Features.Set<IHttpResponseFeature>(response);
         context.Request.Path = path;
 
-        if (signedIn)
+        if (user is not null)
+        {
+            context.User = user;
+        }
+        else if (signedIn)
         {
             context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Name, "a-member")], "TestScheme"));
         }
@@ -50,8 +54,7 @@ public class PrivateResponseMiddlewareTests
 
         var middleware = new PwaPrivateResponseMiddleware(
             _ => Task.CompletedTask,
-            new StaticOptions(new PwaOptions { MarkSignedInResponsesPrivate = optionOn }),
-            new StubPublicAccess(protectedPaths));
+            new StaticOptions(new PwaOptions { MarkSignedInResponsesPrivate = optionOn }));
 
         await middleware.InvokeAsync(context);
         await response.FireAsync();
@@ -74,18 +77,13 @@ public class PrivateResponseMiddlewareTests
     }
 
     [Fact]
-    public async Task A_protected_path_is_marked_private_even_with_nobody_signed_in()
+    public async Task A_protected_path_with_nobody_signed_in_is_left_alone()
     {
-        (await CacheControlAfter(signedIn: false, path: "/members/dashboard", protectedPaths: "/members"))
-            .ShouldBe("private");
-    }
-
-    [Fact]
-    public async Task A_public_path_on_a_site_that_has_protected_content_is_still_left_alone()
-    {
-        // A site with one members area must not lose caching everywhere else.
-        (await CacheControlAfter(signedIn: false, path: "/news/hello", protectedPaths: "/members"))
-            .ShouldBeNullOrEmpty();
+        // The middleware used to claim it caught this. It never did: the check was handed a URL
+        // path where Umbraco wanted a comma-separated node id path, so it always missed. The
+        // branch is gone and this test records what the code actually does, which is nothing.
+        // Umbraco redirects an unauthenticated visitor off protected content before this runs.
+        (await CacheControlAfter(signedIn: false, path: "/members/dashboard")).ShouldBeNullOrEmpty();
     }
 
     [Theory]
@@ -106,6 +104,21 @@ public class PrivateResponseMiddlewareTests
     public void It_is_on_by_default()
     {
         new PwaOptions().MarkSignedInResponsesPrivate.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task A_backoffice_identity_behind_an_anonymous_one_is_still_treated_as_signed_in()
+    {
+        // Umbraco's PreviewAuthenticationMiddleware runs before UseAuthentication and calls
+        // AddIdentity, so on a preview render the backoffice identity sits behind the framework's
+        // anonymous one. ClaimsPrincipal.Identity returns only the first, so the editor reads as
+        // anonymous and the draft gets cached under the published URL.
+        var principal = new ClaimsPrincipal(new ClaimsIdentity());
+        principal.AddIdentity(new ClaimsIdentity([new Claim(ClaimTypes.Name, "an-editor")], "UmbracoBackOffice"));
+
+        principal.Identity!.IsAuthenticated.ShouldBeFalse("the first identity must be the anonymous one, or this test proves nothing");
+
+        (await CacheControlAfter(user: principal, path: "/pricing/")).ShouldBe("private");
     }
 
     /// <summary>

@@ -22,10 +22,31 @@ internal sealed class StubPublicAccess(params string[] protectedPaths) : IPublic
 
     public IEnumerable<PublicAccessEntry> GetAll() => _entries;
 
-    public Attempt<PublicAccessEntry?> IsProtected(string path) =>
-        protectedPaths.Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase))
+    /// <summary>
+    /// Matches on a comma-separated content path, the way the real service does.
+    /// </summary>
+    /// <remarks>
+    /// Umbraco's <c>PublicAccessService.IsProtected(string)</c> hands the argument to
+    /// <c>GetEntryForContent</c>, which runs <c>GetIdsFromPathReversed()</c> on it and expects
+    /// <c>-1,1055,1060</c>. It has no prefix matching over URL paths.
+    ///
+    /// The throw is the point. An earlier version of this stub matched URL prefixes, so the
+    /// middleware could pass <c>Request.Path</c>, get a hit here, and never fire in production.
+    /// Refusing the argument the real service cannot use keeps that from being green again.
+    /// </remarks>
+    public Attempt<PublicAccessEntry?> IsProtected(string contentPath)
+    {
+        if (!contentPath.Contains(','))
+        {
+            throw new ArgumentException(
+                $"IsProtected takes a comma-separated content path such as -1,1055,1060, not '{contentPath}'.",
+                nameof(contentPath));
+        }
+
+        return protectedPaths.Any(p => contentPath.Split(',').Contains(p))
             ? Attempt<PublicAccessEntry?>.Succeed(null)
             : Attempt<PublicAccessEntry?>.Fail();
+    }
 
     public Attempt<PublicAccessEntry?> IsProtected(IContent content) => throw new NotSupportedException();
 
