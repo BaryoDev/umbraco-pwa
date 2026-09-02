@@ -36,3 +36,12 @@ updates:
       codeql:
         patterns:
           - "github/codeql-action*"
+
+  # The demo's base images are pinned by digest, which is what stops a rebuild picking up an
+  # image nobody tested. The cost of a digest is that security patches to the base image stop
+  # arriving on their own, so something has to propose them. This is that something.
+  - package-ecosystem: docker
+    directory: /tests/TestSite
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

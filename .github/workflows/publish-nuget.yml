@@ -13,6 +13,11 @@ on:
         type: boolean
         default: true
 
+# Deny by default for the whole file. The publish job below grants itself exactly what it needs.
+# Without this, a job added later inherits whatever the repository default happens to be, and this
+# is the workflow that holds the release path to nuget.org.
+permissions: {}
+
 concurrency:
   group: publish
   cancel-in-progress: false

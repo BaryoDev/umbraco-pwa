@@ -1,0 +1,6 @@
+# The demo is meant to be found: listings and the README point people at it.
+# The backoffice is not. It is reachable so a visitor can see the install dashboard the
+# package adds, which is the thing being demonstrated, but nothing there should be indexed.
+User-agent: *
+Disallow: /umbraco/
+Disallow: /umbraco
