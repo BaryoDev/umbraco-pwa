@@ -17,6 +17,7 @@
 
 set -eu
 
+EXPLICIT_BASE="${1:-}"
 BASE="${1:-https://dev-playground.baryo.dev}"
 BASE="${BASE%/}"
 
@@ -181,6 +182,14 @@ fi
 # The failure was never that the demo was broken. It was that the demo was fine and the URL we
 # advertise did not reach it. Check the advertised URL, not the one we happen to know works.
 printf '\nThe URL every listing points at\n'
+if [ -n "$EXPLICIT_BASE" ]; then
+    # Someone asked about a specific server: a local `dotnet run`, or the container from the VM
+    # during a release. Public DNS, the certificate and nginx are all worth checking, and none of
+    # them is what "did this deploy work" is asking. Left in, a release fails on a certificate
+    # that expired overnight while the deploy it gated was fine. live-demo.yml passes no base, so
+    # the advertised URL is still checked daily and on any PR touching the listing.
+    printf '  skip  a base was given, so the advertised URL is out of scope here\n'
+else
 # Trailing punctuation is part of the surrounding prose, not the URL. The Marketplace
 # description reads "...at https://dev-playground.baryo.dev, a real Umbraco running this
 # package", and the comma made the first version of this check fetch a URL nobody published.
@@ -200,6 +209,7 @@ else
             pass "advertised $url reaches the demo"
         fi
     done
+fi
 fi
 
 printf '\n'

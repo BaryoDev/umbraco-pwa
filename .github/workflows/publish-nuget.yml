@@ -12,6 +12,10 @@ on:
         description: "Build and pack without publishing"
         type: boolean
         default: true
+      exercise_attest:
+        description: "Also run the provenance attestation on a dry run, to prove that step works without spending a version number"
+        type: boolean
+        default: false
 
 # Deny by default for the whole file. The publish job below grants itself exactly what it needs.
 # Without this, a job added later inherits whatever the repository default happens to be, and this
@@ -117,8 +121,13 @@ jobs:
       # Proves these bytes came from this workflow at this commit. Worth being accurate about what
       # that buys: nuget.org neither surfaces nor verifies it, so it covers the artifact attached
       # to the GitHub release, checkable with `gh attestation verify`. Do not overclaim it.
+      #
+      # Only a tag reaches this on its own, so the action here is untested until the moment it runs
+      # on the irreversible half of the pipeline. exercise_attest makes it reachable from a manual
+      # dry run, which is how a bump to this action gets proved before a release rather than during
+      # one. Off by default: a dry run should not mint attestations as a side effect.
       - name: Attest the package build provenance
-        if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/v') || inputs.exercise_attest }}
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: ./nupkgs/*.nupkg
