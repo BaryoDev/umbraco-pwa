@@ -34,7 +34,12 @@ regexes = [
 [allowlist]
 description = "Deliberate non-secrets"
 regexes = [
+  # Kept because gitleaks scans history and this value is in it. It was the unattended password
+  # until the demo started taking its credential from .env on the VM.
   '''LocalOnly-ChangeMe-1234!''',
+  # What replaced it. Inert by construction rather than by promise: the deployed demo overrides
+  # UnattendedUserPassword from the environment, so this value only ever reaches a local install.
+  '''LocalTestsOnly-Not-The-Demo-4192!''',
   # Base64 of a sentence saying it is not a secret. Umbraco requires valid Base64 here,
   # so the placeholder cannot simply be readable text.
   '''REVWIE9OTFkgcGxhY2Vob2xkZXIuIE5vdCBhIHNlY3JldC4gT3ZlcnJpZGUgVW1icmFjbzpDTVM6SW1hZ2luZzpITUFDU2VjcmV0S2V5IGluIHByb2R1Y3Rpb24u''',
