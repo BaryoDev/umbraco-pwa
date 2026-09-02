@@ -403,10 +403,27 @@ jobs:
         env:
           NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
         run: |
+          # --skip-duplicate stays, because it is the right behaviour for a transport retry. What
+          # it must not do here is pass silently: it turns nuget.org's 409 into a warning, so a
+          # version that already exists is left with ITS bytes while the release step below would
+          # attach the ones just built. The attestation would then cover an artifact nobody can
+          # download, which is precisely the claim this workflow exists to make good.
+          #
+          # A version is spent the moment it is accepted, so a duplicate here means the version
+          # needed bumping, not retrying.
+          set -o pipefail
           dotnet nuget push ./nupkgs/*.nupkg \
             --api-key "$NUGET_API_KEY" \
             --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
+            --skip-duplicate 2>&1 | tee push.log
+
+          if grep -qiE "already exists|conflict" push.log; then
+            echo "::error::This version is already on nuget.org, so nothing was uploaded and its published bytes are not the ones just built. Bump the version rather than re-running." && exit 1
+          fi
+
+          grep -q "Your package was pushed" push.log || {
+            echo "::error::push reported no failure and no success. Refusing to create a release for a package that may not be published." && exit 1
+          }
 
       # Uploads only. Everything that can fail on bad input already ran before Publish, so this
       # step cannot be the thing that discovers the changelog is missing.
