@@ -12,6 +12,8 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-02
+
 ### Security
 
 - **The readiness check can no longer be used to probe the network the server sits on.** It fetches
@@ -65,6 +67,10 @@ each covers and which test gates it.
   additions to the public surface. ([#36])
 - `[RequestSizeLimit(4096)]` on the report action, which is an addition to the public surface.
   ([#98])
+- **An SBOM and a build provenance attestation** on every published release. CycloneDX lists the
+  dependency tree, which is what an agency's procurement asks for before a package goes into a
+  client site. The attestation proves the bytes came from this workflow at this commit, and is
+  checkable against the artifact attached to the GitHub release. ([#108])
 
 ### Changed
 
@@ -74,6 +80,16 @@ each covers and which test gates it.
   what to configure to avoid it entirely. `CLAUDE.md`'s constraint list says the same. ([#88])
 - Dependency advisories now fail the build in a dedicated CI job rather than only warning, and the
   job asserts that restore actually audited every project. ([#90])
+- **The release path now runs every gate CI runs**, not the unit tests alone. The approval test, the
+  advisory audit and the browser suite were all outside it. They run on pushes to main, so in
+  practice they usually had run, and "usually" is not what a release gate means: a tag can be pushed
+  at any commit. ([#108])
+
+### Testing
+
+- **The readiness endpoint is covered, and the authorization test can now fail.** It passed because
+  Umbraco guards the whole management API, not because of this package's policy, so it would have
+  stayed green with the policy removed. ([#103])
 
 
 ## [0.4.0] - 2026-08-27
@@ -215,7 +231,11 @@ First release.
   offer installation.
 - Support for Umbraco 16, 17 and 18, with CI running the suite against each.
 
-[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/BaryoDev/umbraco-pwa/releases/tag/v0.1.0
 [#5]: https://github.com/BaryoDev/umbraco-pwa/issues/5
 [#16]: https://github.com/BaryoDev/umbraco-pwa/issues/16
@@ -239,3 +259,5 @@ First release.
 [#90]: https://github.com/BaryoDev/umbraco-pwa/pull/90
 [#95]: https://github.com/BaryoDev/umbraco-pwa/pull/95
 [#98]: https://github.com/BaryoDev/umbraco-pwa/pull/98
+[#103]: https://github.com/BaryoDev/umbraco-pwa/pull/103
+[#108]: https://github.com/BaryoDev/umbraco-pwa/pull/108
