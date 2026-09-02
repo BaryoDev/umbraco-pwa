@@ -1,6 +1,12 @@
 # The demo is meant to be found: listings and the README point people at it.
-# The backoffice is not. It is reachable so a visitor can see the install dashboard the
-# package adds, which is the thing being demonstrated, but nothing there should be indexed.
+# The backoffice is not.
+#
+# This file stops well-behaved crawlers fetching /umbraco. It does NOT stop the URL being
+# indexed: a search engine will list a disallowed path it finds linked from somewhere else,
+# and a page it is not allowed to fetch is a page it cannot read a noindex from.
+#
+# What actually keeps the backoffice out of results is the X-Robots-Tag: noindex header, set
+# on /umbraco by the nginx vhost in front of this site. This file is the polite half.
 User-agent: *
 Disallow: /umbraco/
 Disallow: /umbraco

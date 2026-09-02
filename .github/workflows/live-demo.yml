@@ -50,5 +50,10 @@ jobs:
         with:
           persist-credentials: false
 
+      # No fallback base on purpose. The script defaults to the advertised URL, and it only checks
+      # what the README and the listing advertise when it is NOT given a base, because a base means
+      # someone is asking about one specific server. Passing the public URL here explicitly would
+      # skip the advertised check, which is the one this workflow exists for: the demo served
+      # Umbraco's installer screen at that exact URL through two releases.
       - name: Check the live demo
-        run: sh scripts/check-live-demo.sh "${{ inputs.base_url || 'https://dev-playground.baryo.dev' }}"
+        run: sh scripts/check-live-demo.sh "${{ inputs.base_url }}"

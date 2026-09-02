@@ -1,6 +1,9 @@
 using System.Net;
+using System.Reflection;
 using System.Text.Json;
+using BaryoDev.Umbraco.Pwa.Controllers;
 using BaryoDev.Umbraco.Pwa.Services;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using Shouldly;
 
@@ -453,12 +456,26 @@ public class InstallPromptTests
         // Enumerating the known call sites is exactly how the gap survived a green suite the
         // first time, so the rule is that pathname may only be read as an argument to
         // normalisePath, and every comparison works on what that returns.
-        foreach (var (name, source) in new[]
-                 {
-                     ("service worker", await _site.Client.GetStringAsync("/sw.js")),
-                     ("install client", await Client()),
-                 })
+        // The routes are read off the controller rather than listed here. A hand-written list is
+        // the same mistake one level up: it would cover the two scripts that exist today and say
+        // nothing about a third, which is exactly how the gap this rule exists for got in.
+        var routes = typeof(PwaAssetsController)
+            .GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)
+            .SelectMany(m => m.GetCustomAttributes<HttpGetAttribute>())
+            .Select(a => a.Template)
+            .Where(t => t is not null && t.EndsWith(".js", StringComparison.Ordinal))
+            .Select(t => t!)
+            .OrderBy(t => t, StringComparer.Ordinal)
+            .ToList();
+
+        // If this ever finds nothing, the reflection has drifted from the controller and every
+        // assertion below would vacuously pass.
+        routes.Count.ShouldBeGreaterThanOrEqualTo(2, "no generated scripts found on the controller");
+
+        foreach (var route in routes)
         {
+            var source = await _site.Client.GetStringAsync(route);
+
             var reads = source
                 .Split('\n')
                 .Select(l => l.Trim())
@@ -466,14 +483,25 @@ public class InstallPromptTests
                 .Where(l => l.Contains("pathname"))
                 .ToList();
 
-            // Pinned so the test cannot pass by finding nothing, and so a fourth read has to be
-            // justified here rather than slipping in: the helper's signature, the one line of the
-            // helper that touches the parameter, and the single call site that feeds it.
-            reads.Count.ShouldBe(3, $"unexpected pathname handling in the {name}");
+            // The three reads the rule permits: the helper's signature, the one line inside it
+            // that touches the parameter, and a call site feeding it. Anything else is a raw read.
+            bool Permitted(string l) =>
+                l == "function normalisePath(pathname) {"
+                || l is "let p = pathname;" or "var p = pathname;"
+                || (l.Contains("normalisePath(") && l.EndsWith(".pathname);"));
 
-            reads.Count(l => l == "function normalisePath(pathname) {").ShouldBe(1);
-            reads.Count(l => l is "let p = pathname;" or "var p = pathname;").ShouldBe(1);
-            reads.Count(l => l.Contains("normalisePath(") && l.EndsWith(".pathname);")).ShouldBe(1);
+            // Forbids the category rather than counting lines. A fourth read fails here whatever
+            // it looks like, and a refactor that changes nothing about how pathname is handled
+            // no longer has to come and update a number.
+            reads.Where(l => !Permitted(l))
+                .ShouldBeEmpty($"{route} reads pathname outside normalisePath");
+
+            // And the positive half, so the test cannot pass by the script having no pathname
+            // handling at all.
+            reads.Count(l => l == "function normalisePath(pathname) {")
+                .ShouldBe(1, $"{route} should define normalisePath exactly once");
+            reads.Count(l => l.Contains("normalisePath(") && l.EndsWith(".pathname);"))
+                .ShouldBe(1, $"{route} should feed normalisePath exactly once");
         }
     }
 }
