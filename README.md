@@ -100,9 +100,10 @@ installed this, on what" without becoming a record of who visited.
 | `GET` | `/umbraco/management/api/v1/baryodev/pwa/readiness` | Settings section |
 | `GET` | `/manifest.webmanifest`, `/sw.js`, `/baryodev-pwa.js` | anonymous |
 
-The report endpoint always returns `202` with no body. It is best-effort telemetry, so a client
-should never retry over it, and a distinguishable response would let an anonymous caller probe
-which device ids exist.
+A well-formed report always returns `202` with no body, whether it was stored or rate limited. It
+is best-effort telemetry, so a client should never retry over it, and an answer that varied with
+the report's content would let an anonymous caller probe which device ids exist. Malformed
+requests are rejected on shape: `400`, `415` or `413`.
 
 ## Using it with a decoupled front end
 

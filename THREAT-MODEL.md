@@ -60,12 +60,18 @@ Everything in the body is hostile input.
 
 Enforced: the request body is capped at 4KB before it is parsed. `deviceId` must match a browser
 id shape and is cut to 100 characters. `platform` and `displayMode` are checked against known
-sets. Reports are rate limited per caller address. Every outcome answers `202` with no body, so the
-endpoint cannot be used as an oracle for which device ids exist.
+sets. Reports are rate limited per caller address. Every well-formed report answers `202` with no
+body whatever became of it, so the endpoint cannot be used as an oracle for which device ids exist.
+A malformed request is rejected on shape alone (`400`, `415`, `413`), which says nothing about
+what is stored.
 
 Not enforced: nothing proves a report is genuine. Anyone can post plausible ones and inflate the
 numbers. That is accepted: the data is adoption telemetry, not a ledger, and the alternative is
 identifying visitors, which the package refuses to do.
+
+Also not enforced: a known device id costs one UPDATE and a novel one an UPDATE plus an INSERT, so
+there is a weak timing difference between them. Left alone deliberately. Knowing an id in the first
+place means holding the browser that generated it, which is not an attacker who needs the oracle.
 
 The rate limit partitions on the caller's address, so every visitor behind one proxy shares a
 budget. The address is used and never stored.
@@ -104,13 +110,24 @@ path removes it entirely.
 
 Cache Storage is shared by everyone who uses the browser profile.
 
-Enforced: a response rendered while anyone is authenticated is marked `Cache-Control: private`, as
-is a response for content Umbraco reports as protected, and the service worker declines to store
-either. `SkipPaths` excludes the backoffice by default.
+Enforced: a response rendered while any identity on the request is authenticated is marked
+`Cache-Control: private`, and the service worker declines to store it. Every identity is checked,
+not just the first, which is what makes preview safe: Umbraco appends the backoffice identity
+behind the framework's anonymous one, so a draft render would otherwise read as anonymous and be
+cached under the published URL.
+
+`SkipPaths` excludes the backoffice by default. Paths are compared case-insensitively and after
+percent-decoding, matching how ASP.NET routes, so `/Umbraco/` and `/%75mbraco/` are excluded too.
 
 Not enforced: content gated in code that does not sign the visitor in. Nothing can infer that those
 pages are private. The site owner has to list them in `SkipPaths`, and a readiness check warns when
 the setting is off and nothing has been excluded.
+
+Also not enforced: the package does not ask Umbraco whether a path is protected. A member reading
+protected content is signed in, so the rule above already covers them, and Umbraco redirects an
+unauthenticated visitor to a login page before the response is rendered. An earlier version claimed
+to check this and did not: it passed a URL path where the service wanted a comma-separated node id
+path, so the check never fired. See #117.
 
 ## Out of scope
 

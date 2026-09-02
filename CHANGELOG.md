@@ -44,6 +44,21 @@ each covers and which test gates it.
   say where the limit is and when it resets. ([#36])
 - **The report body is capped at 4KB.** `deviceId` is cut to 100 characters only after the JSON has
   been parsed. ([#98])
+- **The service worker's skip list is matched the way ASP.NET routes.** `URL.pathname` is
+  case-sensitive and still percent-encoded, so `/Umbraco/`, `/UMBRACO/` and `/%75mbraco/` all
+  served the backoffice while missing a skip list holding `/umbraco/`, and the login page landed in
+  the shell cache. A site owner excluding `/members/` had the same hole at `/Members/`. Paths are
+  now decoded and lowercased once before any comparison, in the worker and in the install prompt,
+  and a test forbids reading `pathname` anywhere else. ([#115])
+- **Every identity on the request is checked, not only the first.** `ClaimsPrincipal.Identity`
+  returns the first identity, and Umbraco's preview middleware appends the backoffice one behind
+  the framework's anonymous one. An editor previewing a draft therefore read as anonymous, and the
+  draft was cached under the published URL. ([#116])
+- **The protected-content check is removed rather than left looking enforced.** It handed
+  `Request.Path` to an overload that wants a comma-separated node id path, so it never fired, while
+  `SECURITY.md` and `THREAT-MODEL.md` both listed it as enforced. The claims go with it. A member
+  reading protected content is signed in and covered by the rule above, and Umbraco redirects an
+  unauthenticated visitor before the response is rendered. ([#117])
 - **`System.Security.Cryptography.Xml` is pinned per target framework.** Umbraco resolves 8.0.0 on
   net10.0 and 9.0.4 on net9.0 through Examine, and both are inside the range of eight advisories,
   one of them a signature-verification bypass. Umbraco pin it internally, but the published
@@ -73,6 +88,16 @@ each covers and which test gates it.
   checkable against the artifact attached to the GitHub release. ([#108])
 
 ### Changed
+
+- **The report endpoint's documented contract is what the endpoint does.** `SECURITY.md`,
+  `THREAT-MODEL.md`, `README.md` and the controller all said it always answers `202` with no body
+  whatever happens. A well-formed report does, whether it was stored or rate limited; a malformed
+  one is refused on shape with `400`, `415` or `413`. The property those documents exist to state,
+  that the answer never varies with the content of a report, is now written down on its own instead
+  of buried inside a claim that was false. ([#118])
+- **The 4KB body cap is tested against a real server.** It is enforced by Kestrel, and the
+  integration suite runs on TestServer, which never applies `MaxRequestBodySize`. An 8KB body came
+  back `202` there while the cap looked covered. The test now runs against the live host. ([#118])
 
 - **`SECURITY.md` said there was no outbound call to any third party at runtime.** That was not
   true: the readiness check probes a configured absolute icon URL, and it runs on every application
@@ -261,3 +286,7 @@ First release.
 [#98]: https://github.com/BaryoDev/umbraco-pwa/pull/98
 [#103]: https://github.com/BaryoDev/umbraco-pwa/pull/103
 [#108]: https://github.com/BaryoDev/umbraco-pwa/pull/108
+[#115]: https://github.com/BaryoDev/umbraco-pwa/issues/115
+[#116]: https://github.com/BaryoDev/umbraco-pwa/issues/116
+[#117]: https://github.com/BaryoDev/umbraco-pwa/issues/117
+[#118]: https://github.com/BaryoDev/umbraco-pwa/issues/118
