@@ -9,9 +9,18 @@ services:
     image: umbraco-pwa-demo:arm64
     container_name: umbraco-pwa-demo
     restart: unless-stopped
+    # The demo's backoffice credential and image HMAC key come from deploy/.env on the VM,
+    # which is gitignored and never leaves it. They used to be read from
+    # tests/TestSite/appsettings.json, which is public, so the administrator password for a
+    # publicly reachable backoffice was published with the source for three weeks.
+    env_file:
+      - .env
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ASPNETCORE_HTTP_PORTS: "8080"
+      Umbraco__CMS__Unattended__UnattendedUserEmail: ${DEMO_ADMIN_EMAIL:?set DEMO_ADMIN_EMAIL in deploy/.env}
+      Umbraco__CMS__Unattended__UnattendedUserPassword: ${DEMO_ADMIN_PASSWORD:?set DEMO_ADMIN_PASSWORD in deploy/.env}
+      Umbraco__CMS__Imaging__HMACSecretKey: ${DEMO_IMAGING_HMAC_KEY:?set DEMO_IMAGING_HMAC_KEY in deploy/.env}
     ports:
       # Loopback only. Reaching it from outside is nginx's job, not Docker's.
       - "127.0.0.1:5301:8080"

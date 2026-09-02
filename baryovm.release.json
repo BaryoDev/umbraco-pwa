@@ -17,6 +17,10 @@
     "umbraco/Logs",
     "._*"
   ],
+  "//verify": "Runs from the login shell's home, not remoteRoot, so the cd is load-bearing: without it this exits 127 and the release fails for the wrong reason. Not a health URL. scripts/check-live-demo.sh asserts the demo actually demonstrates the package: manifest link, generated client, the offline fallback, and that the root is not Umbraco's installer screen. The demo served that installer screen through 0.1.0 and 0.2.0 as a perfectly valid 200, which is exactly what a liveness probe cannot see.",
+  "verify": [
+    "cd /home/opc/umbraco-pwa && sh scripts/check-live-demo.sh http://127.0.0.1:5301"
+  ],
   "builds": [
     {
       "image": "umbraco-pwa-demo:arm64",
