@@ -49,4 +49,24 @@ public class BackofficeSectionAccessTests
 
         response!.Status.ShouldBe(200);
     }
+    [Fact]
+    public async Task An_administrator_can_sign_in_to_the_backoffice()
+    {
+        // The furthest #104 has got: a real backoffice session in a real browser, over the TLS
+        // binding OpenIddict requires. What remains is reading that session's token, which three
+        // separate mechanisms redact. See the issue for what was measured.
+        var page = await _site.NewSecurePageAsync();
+
+        await page.GotoAsync("/umbraco/login");
+        await page.FillAsync("input[name=username]", "test@example.com");
+        await page.FillAsync("input[name=password]", "LocalOnly-ChangeMe-1234!");
+        await page.Keyboard.PressAsync("Enter");
+        // Two waits, because they are two different things. The first is the server letting go of
+        // the login route; the second is the shell routing client-side to a section, which is what
+        // actually demonstrates the session resolved to a user with somewhere to go.
+        await page.WaitForURLAsync(u => !u.Contains("/login"), new() { Timeout = 30000 });
+        await page.WaitForURLAsync(u => u.Contains("/umbraco/section/"), new() { Timeout = 30000 });
+
+        page.Url.ShouldContain("/umbraco/section/");
+    }
 }
