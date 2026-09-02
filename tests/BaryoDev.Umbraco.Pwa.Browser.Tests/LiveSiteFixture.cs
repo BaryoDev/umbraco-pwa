@@ -27,6 +27,7 @@ public class LiveSiteFixture : IAsyncLifetime
 
     private Process? _site;
     private IPlaywright? _playwright;
+    private IBrowser? _secureBrowser;
     private LocalForwardingProxy? _proxy;
 
     private void Capture(string? line)
@@ -48,6 +49,16 @@ public class LiveSiteFixture : IAsyncLifetime
     public IBrowser Browser { get; private set; } = default!;
 
     public string BaseUrl { get; private set; } = default!;
+
+    /// <summary>
+    /// The same site over TLS, for anything that talks to Umbraco's management API.
+    /// </summary>
+    /// <remarks>
+    /// OpenIddict refuses to issue or accept tokens over plain HTTP, so a backoffice test cannot
+    /// use <see cref="BaseUrl"/>. The certificate is the ASP.NET development certificate, which a
+    /// browser context has to be told to accept.
+    /// </remarks>
+    public string SecureBaseUrl { get; private set; } = default!;
 
     /// <summary>The cache the worker is configured to use, so a test can look inside it.</summary>
     public const string ShellCache = "browsertest-shell-bt1";
@@ -81,9 +92,11 @@ public class LiveSiteFixture : IAsyncLifetime
     {
         Directory.CreateDirectory(_dataDirectory);
         var port = FreePort();
+        var securePort = FreePort();
         BaseUrl = $"http://127.0.0.1:{port}";
+        SecureBaseUrl = $"https://127.0.0.1:{securePort}";
 
-        _site = StartSite(port);
+        _site = StartSite(port, securePort);
         await WaitUntilServing();
 
         _proxy = new LocalForwardingProxy();
@@ -98,6 +111,13 @@ public class LiveSiteFixture : IAsyncLifetime
         Browser = await _playwright.Chromium.LaunchAsync(new()
         {
             Headless = true,
+            // The TLS binding goes direct. Everything else goes through the local proxy, which is
+            // what DisableNetwork switches off to take the browser offline. That proxy rewrites
+            // plain HTTP requests and implements no CONNECT tunnel, so an HTTPS request through it
+            // dies as ERR_EMPTY_RESPONSE, which reads like the server is down.
+            //
+            // The backoffice tests do not need to go offline, so bypassing is the smaller change.
+            // Teaching the proxy CONNECT would be the alternative and buys nothing here.
             Proxy = new Proxy { Server = _proxy.Server, Bypass = string.Empty },
         });
     }
@@ -110,11 +130,40 @@ public class LiveSiteFixture : IAsyncLifetime
         return page;
     }
 
+    /// <summary>
+    /// A page pointed at the TLS binding, for anything that talks to the management API.
+    /// </summary>
+    /// <remarks>
+    /// <c>IgnoreHTTPSErrors</c> because the certificate is the ASP.NET development one, which
+    /// nothing in a test run has any reason to trust. This context is deliberately not used by the
+    /// service worker tests: an untrusted origin is not a secure context, and registration would
+    /// fail for a reason that has nothing to do with the worker.
+    /// </remarks>
+    public async Task<IPage> NewSecurePageAsync()
+    {
+        // A second browser, launched with no proxy. The main one routes everything through the
+        // local forwarding proxy, which is what DisableNetwork switches off; that proxy rewrites
+        // plain HTTP and implements no CONNECT tunnel, so an HTTPS request through it dies as
+        // ERR_EMPTY_RESPONSE and reads like the server is down. Chromium does not honour a
+        // host:port bypass for a loopback address, so bypassing was not an option.
+        //
+        // Teaching the proxy CONNECT would be the alternative. Nothing here needs to go offline
+        // over TLS, so a second browser is the smaller and more obvious change.
+        _secureBrowser ??= await _playwright!.Chromium.LaunchAsync(new() { Headless = true });
+
+        var context = await _secureBrowser.NewContextAsync(new()
+        {
+            BaseURL = SecureBaseUrl,
+            IgnoreHTTPSErrors = true,
+        });
+        return await context.NewPageAsync();
+    }
+
     public void DisableNetwork() => _proxy!.ForwardingEnabled = false;
 
     public void EnableNetwork() => _proxy!.ForwardingEnabled = true;
 
-    private Process StartSite(int port)
+    private Process StartSite(int port, int securePort)
     {
         var meta = typeof(LiveSiteFixture).Assembly
             .GetCustomAttributes<AssemblyMetadataAttribute>()
@@ -139,8 +188,23 @@ public class LiveSiteFixture : IAsyncLifetime
         start.ArgumentList.Add($"-p:UmbracoVersion={meta["TestSiteUmbracoVersion"]}");
 
         var env = start.Environment;
-        env["ASPNETCORE_URLS"] = $"http://127.0.0.1:{port}";
+        // Both, deliberately. The service worker tests need the plain-HTTP origin: Chromium treats
+        // 127.0.0.1 as a trustworthy origin whatever the scheme, and a dev certificate it does not
+        // trust would block registration for a reason that has nothing to do with the worker.
+        //
+        // The HTTPS origin exists for the backoffice tests. Umbraco's management API is behind
+        // OpenIddict, which refuses plain HTTP outright: "This server only accepts HTTPS requests".
+        // Measured, not assumed. Two bindings keeps that requirement out of the suite that does
+        // not need it.
+        env["ASPNETCORE_URLS"] = $"http://127.0.0.1:{port};https://127.0.0.1:{securePort}";
         env["ASPNETCORE_ENVIRONMENT"] = "Development";
+
+        // HTTP/1.1 only. Kestrel offers HTTP/2 over TLS through ALPN, and Chromium negotiating it
+        // against the development certificate closes the connection without a response:
+        // ERR_EMPTY_RESPONSE, which reads like the server is down rather than like a protocol
+        // mismatch. An HttpClient against the same binding succeeds, which is how this was
+        // narrowed down. Nothing here needs HTTP/2.
+        env["Kestrel__EndpointDefaults__Protocols"] = "Http1";
 
         var dbPath = Path.Combine(_dataDirectory, "Umbraco.sqlite.db");
         env["ConnectionStrings__umbracoDbDSN"] =
@@ -214,6 +278,8 @@ public class LiveSiteFixture : IAsyncLifetime
     public async Task DisposeAsync()
     {
         if (Browser is not null) await Browser.CloseAsync();
+        // Only created if a test asked for a secure page, so usually null.
+        if (_secureBrowser is not null) await _secureBrowser.CloseAsync();
         _playwright?.Dispose();
         if (_proxy is not null) await _proxy.DisposeAsync();
 
