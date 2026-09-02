@@ -69,4 +69,5 @@ public class BackofficeSectionAccessTests
 
         page.Url.ShouldContain("/umbraco/section/");
     }
+
 }
