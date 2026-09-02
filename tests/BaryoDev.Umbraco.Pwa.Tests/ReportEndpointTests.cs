@@ -227,4 +227,43 @@ public class ReportEndpointTests
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
+
+    [Fact]
+    public async Task A_body_that_is_not_json_is_refused_on_its_content_type()
+    {
+        using var content = new StringContent("deviceId=abc", System.Text.Encoding.UTF8, "text/plain");
+
+        var response = await _site.Client.PostAsync("/umbraco/pwa/api/report", content);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.UnsupportedMediaType);
+    }
+
+    [Fact]
+    public async Task A_shape_rejection_says_nothing_about_stored_data()
+    {
+        // The security property the 202 rule exists for. A rejection is allowed to have a body,
+        // but it must not differ by whether the device id in it is one the site has already seen.
+        var known = "probe-" + Guid.NewGuid().ToString("N");
+        await _site.ReportAsync(Report(known));
+
+        using var withKnown = new StringContent(
+            "{\"deviceId\":\"" + known + "\",", System.Text.Encoding.UTF8, "application/json");
+        using var withNovel = new StringContent(
+            "{\"deviceId\":\"probe-" + Guid.NewGuid().ToString("N") + "\",",
+            System.Text.Encoding.UTF8, "application/json");
+
+        var a = await _site.Client.PostAsync("/umbraco/pwa/api/report", withKnown);
+        var b = await _site.Client.PostAsync("/umbraco/pwa/api/report", withNovel);
+
+        a.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        b.StatusCode.ShouldBe(a.StatusCode);
+        // traceId is per request and carries nothing about stored data, so it is stripped rather
+        // than compared. Everything else in the problem details must match.
+        static string WithoutTraceId(string body) =>
+            System.Text.RegularExpressions.Regex.Replace(body, "\"traceId\":\"[^\"]*\"", "");
+
+        WithoutTraceId(await b.Content.ReadAsStringAsync())
+            .ShouldBe(WithoutTraceId(await a.Content.ReadAsStringAsync()));
+    }
+
 }

@@ -442,4 +442,38 @@ public class InstallPromptTests
         source.ShouldContain("setAttribute(\"role\", \"dialog\")");
         source.ShouldContain("aria-label");
     }
+
+    [Fact]
+    public async Task No_generated_script_compares_a_raw_pathname()
+    {
+        // The category, not the two call sites that had the bug. URL.pathname is case-sensitive
+        // and still percent-encoded; ASP.NET routing is neither, so /Umbraco/ and /%75mbraco/
+        // serve the backoffice while a raw comparison against "/umbraco/" misses both.
+        //
+        // Enumerating the known call sites is exactly how the gap survived a green suite the
+        // first time, so the rule is that pathname may only be read as an argument to
+        // normalisePath, and every comparison works on what that returns.
+        foreach (var (name, source) in new[]
+                 {
+                     ("service worker", await _site.Client.GetStringAsync("/sw.js")),
+                     ("install client", await Client()),
+                 })
+        {
+            var reads = source
+                .Split('\n')
+                .Select(l => l.Trim())
+                .Where(l => !l.StartsWith("//"))
+                .Where(l => l.Contains("pathname"))
+                .ToList();
+
+            // Pinned so the test cannot pass by finding nothing, and so a fourth read has to be
+            // justified here rather than slipping in: the helper's signature, the one line of the
+            // helper that touches the parameter, and the single call site that feeds it.
+            reads.Count.ShouldBe(3, $"unexpected pathname handling in the {name}");
+
+            reads.Count(l => l == "function normalisePath(pathname) {").ShouldBe(1);
+            reads.Count(l => l is "let p = pathname;" or "var p = pathname;").ShouldBe(1);
+            reads.Count(l => l.Contains("normalisePath(") && l.EndsWith(".pathname);")).ShouldBe(1);
+        }
+    }
 }

@@ -11,9 +11,14 @@ namespace BaryoDev.Umbraco.Pwa.Controllers;
 /// an install is a visitor, not a backoffice user.
 /// </summary>
 /// <remarks>
-/// Always returns 202 and never a body. Two reasons. This is best-effort telemetry, so a client
-/// should never retry or surface an error over it. And a distinguishable response would let an
-/// unauthenticated caller probe which device ids exist.
+/// A well-formed report always answers 202 with no body, whatever became of it. Two reasons. This
+/// is best-effort telemetry, so a client should never retry or surface an error over it. And an
+/// answer that varied with the report's content would let an unauthenticated caller probe which
+/// device ids exist.
+///
+/// Malformed requests are rejected on shape before any of that reaches here: 400 for unparseable
+/// JSON, 415 for the wrong content type, 413 for a body over 4KB. Those reveal nothing about what
+/// is stored, which is why they do not break the property above.
 /// </remarks>
 [ApiController]
 [AllowAnonymous]

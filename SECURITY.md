@@ -20,10 +20,16 @@ worth attacking first rather than waiting for someone to find them.
 Worth knowing when judging whether something is a vulnerability here.
 
 **One anonymous endpoint exists.** `POST /umbraco/pwa/api/report` is deliberately unauthenticated,
-because it is called by every visitor's browser. It always returns `202` with no body, whatever
-happens. That is not laziness: a distinguishable response would let an anonymous caller probe
-which device ids exist. Reports of "the endpoint accepts junk" are expected behaviour; reports
-that it *leaks* something are not.
+because it is called by every visitor's browser. A well-formed report always returns `202` with no
+body, whether it was stored, rate limited or discarded. A malformed request is rejected on its
+shape instead: `400` for unparseable JSON, `415` for the wrong content type, and `413` for a body
+over 4KB.
+
+The property that matters is that the answer never depends on what is in the report. A device id
+that is already stored and one that has never been seen produce the same `202`, so the endpoint
+cannot be used to probe which ids exist, and a declined report is indistinguishable from an
+accepted one. Reports of "the endpoint accepts junk" are expected behaviour; reports that it
+*leaks* something are not.
 
 **`deviceId` is attacker-controlled and rendered to an administrator.** It arrives from that
 anonymous endpoint and appears in the backoffice dashboard, which is a stored-XSS path. The
@@ -56,14 +62,22 @@ the kind of claim worth checking rather than trusting: see #88.
 **Pages rendered for a signed-in visitor are not cached.** Cache Storage belongs to the browser
 profile, not to the visitor, so anything cached while one person was signed in would be served to
 whoever uses that browser next. The package marks those responses `Cache-Control: private` and the
-service worker declines to store them. This covers content protected through Umbraco's public
-access, and any other sign-in, because the check is whether anyone is authenticated rather than
-which scheme authenticated them. It never overrides a `Cache-Control` header the site set itself.
+service worker declines to store them. The check is whether any identity on the request is
+authenticated rather than which scheme authenticated them, so it covers members, backoffice users
+and a site's own membership alike. Every identity is checked rather than only the first, which is
+what makes preview safe: Umbraco appends the backoffice identity behind the framework's anonymous
+one, so a draft render would otherwise read as anonymous. It never overrides a `Cache-Control`
+header the site set itself.
+
+The package does not ask Umbraco whether a path is protected. It does not need to: a member reading
+protected content is signed in, and Umbraco redirects an unauthenticated visitor to a login page
+before the response is rendered.
 
 If your site gates content in code rather than through public access and does not sign the visitor
 in, nothing can infer that those pages are private: add their paths to
-`BaryoDev:Pwa:ServiceWorker:SkipPaths`. A readiness warning appears if you turn the protection off
-while the site has protected content and has excluded nothing.
+`BaryoDev:Pwa:ServiceWorker:SkipPaths`. Those are matched case-insensitively and after
+percent-decoding, so listing `/members/` also covers `/Members/`. A readiness warning appears if you
+turn the protection off while the site has protected content and has excluded nothing.
 
 **The backoffice endpoints require the Settings section.** `/summary`, `/installs` and
 `/readiness` are behind `SectionAccessSettings`. Reaching any of them without a backoffice session

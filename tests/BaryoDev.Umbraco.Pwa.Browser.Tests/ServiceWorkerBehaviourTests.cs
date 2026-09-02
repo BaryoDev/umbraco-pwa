@@ -202,6 +202,25 @@ public class ServiceWorkerBehaviourTests
         (await CacheKeys(page)).ShouldNotContain(k => k.StartsWith("/umbraco/"));
     }
 
+    [Theory]
+    [InlineData("/Umbraco/")]
+    [InlineData("/UMBRACO/")]
+    [InlineData("/%75mbraco/")]
+    public async Task The_backoffice_is_never_cached_whatever_the_casing_or_encoding(string variant)
+    {
+        // ASP.NET routing is neither case-sensitive nor percent-encoded, so all of these serve the
+        // backoffice. URL.pathname is both, so a raw startsWith comparison against "/umbraco/"
+        // misses every one of them and the login page lands in the shell cache.
+        var page = await Installed();
+
+        await page.EvaluateAsync($"async () => {{ try {{ await fetch('{variant}'); }} catch {{}} }}");
+        await Settle(page);
+
+        (await CacheKeys(page)).ShouldNotContain(
+            k => k.Contains("umbraco/", StringComparison.OrdinalIgnoreCase) ||
+                 k.Contains("%75mbraco/", StringComparison.OrdinalIgnoreCase));
+    }
+
     [Fact]
     public async Task A_successful_api_response_is_returned_live_and_cached()
     {
