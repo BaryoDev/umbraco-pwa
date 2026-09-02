@@ -30,7 +30,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      # write, not read: the release step below creates the GitHub release and uploads the nupkg
+      # to it. That upload is the only place the build provenance attestation is checkable, since
+      # nuget.org neither surfaces nor verifies attestations.
+      contents: write
       # Lets the runner mint the OIDC token nuget.org exchanges for a
       # short-lived API key. No long-lived secret is involved. The same token
       # signs the build provenance attestation.
@@ -356,6 +359,42 @@ jobs:
           fi
           echo "Trusted publishing OK: short-lived key issued."
 
+      # Before Publish, deliberately. This is the only step that can fail on the contents of the
+      # repository rather than on the build, and a push to nuget.org cannot be undone: a version is
+      # spent the moment it is accepted. Discovering a missing changelog section after the package
+      # is public would leave the release that the attestation points at permanently uncreatable.
+      - name: Prepare the release notes
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.dry_run }}
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#v}"
+          awk -v v="## [$VERSION]" '
+            index($0, v) == 1 { f = 1; next }
+            f && /^## \[/ { exit }
+            f { print }
+          ' CHANGELOG.md > release-notes.md
+
+          # Not -s. awk prints the blank line that follows the heading, so a section with no notes
+          # produces a file that is non-empty and says nothing.
+          if ! grep -q '[^[:space:]]' release-notes.md; then
+            echo "::error::CHANGELOG.md has no notes under ## [$VERSION], so the release would say nothing." && exit 1
+          fi
+
+          {
+            echo "The nupkg attached here is what the build provenance attestation covers:"
+            echo
+            echo '```'
+            echo "gh attestation verify BaryoDev.Umbraco.Pwa.$VERSION.nupkg --repo $GITHUB_REPOSITORY"
+            echo '```'
+            echo
+            echo "The SBOM is attached too, and is not covered by the attestation."
+            echo
+            cat release-notes.md
+          } > body.md
+
+          echo "Release notes ready: $(grep -c '' body.md) lines."
+
       # Publication requires a tag push, and only a tag push. The tag-match step above is itself
       # conditional on a tag ref, so a dispatched run with dry_run unticked would otherwise reach
       # push with the version check skipped rather than passed.
@@ -364,7 +403,35 @@ jobs:
         env:
           NUGET_API_KEY: ${{ steps.nuget_login.outputs.NUGET_API_KEY }}
         run: |
+          # --skip-duplicate stays, because it is the right behaviour for a transport retry. What
+          # it must not do here is pass silently: it turns nuget.org's 409 into a warning, so a
+          # version that already exists is left with ITS bytes while the release step below would
+          # attach the ones just built. The attestation would then cover an artifact nobody can
+          # download, which is precisely the claim this workflow exists to make good.
+          #
+          # A version is spent the moment it is accepted, so a duplicate here means the version
+          # needed bumping, not retrying.
+          set -o pipefail
           dotnet nuget push ./nupkgs/*.nupkg \
             --api-key "$NUGET_API_KEY" \
             --source https://api.nuget.org/v3/index.json \
-            --skip-duplicate
+            --skip-duplicate 2>&1 | tee push.log
+
+          if grep -qiE "already exists|conflict" push.log; then
+            echo "::error::This version is already on nuget.org, so nothing was uploaded and its published bytes are not the ones just built. Bump the version rather than re-running." && exit 1
+          fi
+
+          grep -q "Your package was pushed" push.log || {
+            echo "::error::push reported no failure and no success. Refusing to create a release for a package that may not be published." && exit 1
+          }
+
+      # Uploads only. Everything that can fail on bad input already ran before Publish, so this
+      # step cannot be the thing that discovers the changelog is missing.
+      - name: Create the GitHub release
+        if: ${{ startsWith(github.ref, 'refs/tags/v') && !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" ./nupkgs/*.nupkg ./nupkgs/sbom.json \
+            --title "$TAG" --notes-file body.md --verify-tag
