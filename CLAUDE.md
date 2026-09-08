@@ -160,8 +160,17 @@ Then, after the publish job goes green, in this order:
 1. **Wait for NuGet to index.** Three read paths backfill separately: the flat container is what
    `dotnet restore` uses, the registration index carries listing state, and the search index feeds
    both the gallery search box and the Marketplace. A version can be restorable while still absent
-   from search, and 0.5.0 sat that way for roughly 40 minutes. Check with
-   `curl -s "https://azuresearch-usnc.nuget.org/query?q=packageid:baryodev.umbraco.pwa"`.
+   from search, and 0.5.0 sat that way for roughly 40 minutes. Ask about the version you just
+   published rather than about the package. The top-level `version` in the search reply is the
+   latest version already indexed, so it answers a question you did not ask and reads as success
+   while the new one is still missing:
+
+   ```
+   curl -s "https://azuresearch-usnc.nuget.org/query?q=packageid:baryodev.umbraco.pwa" \
+     | jq -e --arg v 0.5.0 '.data[0].versions | map(.version) | index($v)'
+   ```
+
+   Exit 0 means indexed, exit 1 means keep waiting.
 2. **Then request the Marketplace sync**, not before. It reads NuGet's search API, so a sync
    requested while search is still cold has nothing new to read. The record takes 25 to 30
    minutes to update after the request.
