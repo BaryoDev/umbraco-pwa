@@ -27,4 +27,16 @@
     <ProjectReference Include="..\TestSite\TestSite.csproj" />
   </ItemGroup>
 
+  <!--
+    The package identity test compares what ships in wwwroot/umbraco-package.json against the
+    csproj that produces the NuGet package. It has to read the csproj itself rather than a copy of
+    the values, or the test would only prove two literals agree with each other.
+  -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Reflection.AssemblyMetadata">
+      <_Parameter1>ProductProjectFile</_Parameter1>
+      <_Parameter2>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj'))</_Parameter2>
+    </AssemblyAttribute>
+  </ItemGroup>
+
 </Project>

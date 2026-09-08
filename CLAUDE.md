@@ -147,8 +147,38 @@ Two pieces of metadata have to move with the version, and nothing fails if they 
   is not an error, it is silently ignored, which is how `BugsUrl` sat there looking correct while
   the listing carried no issue tracker link. The supported field is `IssueTrackerUrl`.
 
-Listing changes are picked up by the "request package sync" button on the Marketplace `/validate`
-page, not by the daily 04:00 UTC scan, and the record takes 25 to 30 minutes to update.
+`umbraco-package.json` used to belong on that list too. It does not any more. `PackageIdentityTests`
+reads the csproj and fails if the manifest `id` is not `<PackageId>`, or the manifest `version` is
+not `<Version>`. Leave those two to the test rather than restating them as manual steps. The `id`
+matters more than it looks: Umbraco reports install telemetry under it, the Marketplace ranks "Most
+popular" on that number, and without it telemetry falls back to the manifest name and then the
+`App_Plugins` folder name, both of which are `BaryoDev.Pwa` here and neither of which the listing
+is keyed on. A mismatch is not a failure, it is installs counted against a name nobody is looking at.
+
+Then, after the publish job goes green, in this order:
+
+1. **Wait for NuGet to index.** Three read paths backfill separately: the flat container is what
+   `dotnet restore` uses, the registration index carries listing state, and the search index feeds
+   both the gallery search box and the Marketplace. A version can be restorable while still absent
+   from search, and 0.5.0 sat that way for roughly 40 minutes. Check with
+   `curl -s "https://azuresearch-usnc.nuget.org/query?q=packageid:baryodev.umbraco.pwa"`.
+2. **Then request the Marketplace sync**, not before. It reads NuGet's search API, so a sync
+   requested while search is still cold has nothing new to read. The record takes 25 to 30
+   minutes to update after the request.
+3. **Confirm the listing actually changed.** Meeting the listing conditions is necessary and not
+   sufficient. There are documented cases of packages that met them and did not appear.
+
+The `/validate` page's "request package sync" button posts to
+`https://functions.marketplace.umbraco.com/api/InitiateSinglePackageSyncFunction` with
+`{"PackageId": "BaryoDev.Umbraco.Pwa"}`, throttled to one request per minute per package id. That
+endpoint is documented, not verified here, so treat it as a description of the button rather than
+something to script against. Known listings refresh on their own every 2 hours and download counts
+hourly, so the button buys latency, not an update that would otherwise never arrive. The daily
+04:00 UTC scan is only for discovering packages the Marketplace has never seen.
+
+One planning consequence. Listing copy, tags, category and screenshots sync on that 2 hour cycle
+and are not tied to a package version, so they can be changed on any day. Do not hold them for a
+release.
 
 Do not tag a release without being asked to. Publishing to NuGet cannot be undone: a version
 number is spent the moment it is used.
