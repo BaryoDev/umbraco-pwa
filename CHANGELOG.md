@@ -12,6 +12,26 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+### Fixed
+
+- **The backoffice manifest declares the NuGet package id, so install telemetry reaches the
+  listing.** Umbraco identifies a package in telemetry by the manifest `id`, falling back to the
+  manifest `name` and then the `App_Plugins` folder name. Both fallbacks are `BaryoDev.Pwa` here
+  while the Marketplace listing is keyed on `BaryoDev.Umbraco.Pwa`, so installs on
+  telemetry-enabled sites were counted against a name the listing does not use, and the "Most
+  popular" ranking never saw them. The `App_Plugins` folder name is unchanged, so nothing installed
+  moves. ([#57])
+
+### Changed
+
+- A test now reads the csproj and fails when the manifest `id` is not `<PackageId>` or the manifest
+  `version` is not `<Version>`, rather than the release checklist asking someone to remember. The
+  version half of that drifted once already and shipped four releases reading `0.1.0`. ([#57],
+  [#58], [#65])
+- The release section of `CLAUDE.md` now says to wait for NuGet's search index before requesting a
+  Marketplace sync, because the Marketplace reads that index. On 0.5.0 the package was restorable
+  about 40 minutes before it was searchable. ([#65])
+
 ## [0.5.0] - 2026-09-02
 
 ### Security
@@ -290,3 +310,6 @@ First release.
 [#116]: https://github.com/BaryoDev/umbraco-pwa/issues/116
 [#117]: https://github.com/BaryoDev/umbraco-pwa/issues/117
 [#118]: https://github.com/BaryoDev/umbraco-pwa/issues/118
+[#57]: https://github.com/BaryoDev/umbraco-pwa/issues/57
+[#58]: https://github.com/BaryoDev/umbraco-pwa/issues/58
+[#65]: https://github.com/BaryoDev/umbraco-pwa/issues/65
