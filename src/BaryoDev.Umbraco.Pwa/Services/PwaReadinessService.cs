@@ -147,7 +147,12 @@ internal class PwaReadinessService : IPwaReadinessService, IPwaStartupReadinessS
 
         foreach (var required in new[] { "192x192", "512x512" })
         {
-            var icon = m.Icons.FirstOrDefault(i => i.Sizes == required);
+            // sizes is a space separated set, so one icon can legitimately answer for both required
+            // sizes with "192x192 512x512". Matching the whole string told such a site its icon was
+            // "not configured" while Chrome, which parses it as a token list, installed it happily.
+            var icon = m.Icons.FirstOrDefault(i => i.Sizes
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Contains(required, StringComparer.OrdinalIgnoreCase));
 
             if (icon is null)
             {

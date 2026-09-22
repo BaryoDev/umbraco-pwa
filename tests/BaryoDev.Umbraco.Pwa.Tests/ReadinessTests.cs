@@ -272,6 +272,37 @@ public class ReadinessTests
     }
 
     [Fact]
+    public async Task One_icon_declaring_both_required_sizes_satisfies_both_checks()
+    {
+        // sizes is a space separated set, and declaring one file for several sizes is both legal
+        // and common for an SVG. Matching the attribute whole told those sites their 192 icon was
+        // "not configured" and that Chrome would refuse to install them, while Chrome, which parses
+        // sizes as a token list, was installing them.
+        var options = _site.Resolve<IOptionsMonitor<PwaOptions>>().CurrentValue;
+        var original = options.Manifest.Icons.ToList();
+
+        try
+        {
+            options.Manifest.Icons.Clear();
+            options.Manifest.Icons.Add(new PwaIcon
+            {
+                Src = original.First().Src,
+                Sizes = "192x192 512x512",
+            });
+
+            var readiness = await Check();
+
+            readiness.Checks.Single(c => c.Name == "Icon 192x192").Passed.ShouldBeTrue();
+            readiness.Checks.Single(c => c.Name == "Icon 512x512").Passed.ShouldBeTrue();
+        }
+        finally
+        {
+            options.Manifest.Icons.Clear();
+            options.Manifest.Icons.AddRange(original);
+        }
+    }
+
+    [Fact]
     public async Task A_configured_icon_that_exists_passes()
     {
         // The other half. Without this, the check could report everything as broken and still
