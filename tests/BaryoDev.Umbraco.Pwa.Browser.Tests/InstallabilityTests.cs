@@ -36,6 +36,13 @@ public class InstallabilityTests
     /// Fetched through the browser, from a page on the site, so this goes through the same origin,
     /// content type and parsing a browser applies when it follows the manifest link.
     /// </summary>
+    /// <remarks>
+    /// The URL comes from the page's own <c>link[rel~="manifest"]</c> rather than being hardcoded,
+    /// because that is the one a browser would use. Asserting against the manifest at a path the
+    /// package happens to serve would still pass if the page pointed somewhere else entirely.
+    /// <c>response.url</c> comes back so the icon and <c>start_url</c> checks resolve relative
+    /// references against the manifest, which is what the spec says they are relative to.
+    /// </remarks>
     private async Task<JsonElement> ManifestAsync()
     {
         var page = await _site.NewPageAsync();
@@ -44,9 +51,15 @@ public class InstallabilityTests
         var json = await page.EvaluateAsync<string>(
             """
             async () => {
-              const response = await fetch('/manifest.webmanifest');
+              // rel is a token list: rel="manifest alternate" is still a manifest link.
+              const link = document.querySelector('link[rel~="manifest"]');
+              if (!link) throw new Error('no link[rel~="manifest"] on the page');
+
+              const response = await fetch(link.href);
               if (!response.ok) throw new Error('manifest responded ' + response.status);
+
               return JSON.stringify({
+                url: response.url,
                 contentType: response.headers.get('content-type'),
                 body: await response.json(),
               });
@@ -77,20 +90,35 @@ public class InstallabilityTests
         manifest.GetProperty("start_url").GetString().ShouldNotBeNullOrWhiteSpace();
         manifest.GetProperty("display").GetString().ShouldNotBe("browser");
 
-        var sizes = manifest.GetProperty("icons").EnumerateArray()
-            .Select(icon => icon.GetProperty("sizes").GetString())
-            .ToArray();
+        var sizes = DeclaredSizes(manifest);
 
         sizes.ShouldContain("192x192");
         sizes.ShouldContain("512x512");
     }
+
+    /// <summary>
+    /// Every size token every icon declares.
+    /// </summary>
+    /// <remarks>
+    /// <c>sizes</c> is a space separated set, so one icon can answer for both required sizes with
+    /// <c>"192x192 512x512"</c>. Comparing the whole attribute would call that manifest incomplete
+    /// while a browser, which parses it as a token list, installs the site happily.
+    /// </remarks>
+    private static string[] DeclaredSizes(JsonElement manifest) =>
+        manifest.GetProperty("icons").EnumerateArray()
+            .Select(icon => icon.GetProperty("sizes").GetString())
+            .Where(sizes => !string.IsNullOrWhiteSpace(sizes))
+            .SelectMany(sizes => sizes!.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            .ToArray();
 
     [Fact]
     public async Task Every_icon_the_manifest_declares_is_actually_fetchable()
     {
         // A manifest naming an icon that 404s is worse than one naming none: the readiness panel
         // reports an icon present and the browser refuses the install without saying why.
-        var manifest = (await ManifestAsync()).GetProperty("body");
+        var result = await ManifestAsync();
+        var manifestUrl = result.GetProperty("url").GetString()!;
+        var manifest = result.GetProperty("body");
 
         var page = await _site.NewPageAsync();
         await page.GotoAsync(LiveSiteFixture.EntryPage);
@@ -100,8 +128,11 @@ public class InstallabilityTests
             var src = icon.GetProperty("src").GetString();
             src.ShouldNotBeNullOrWhiteSpace();
 
+            // Resolved against the manifest rather than the page: icons[].src is relative to the
+            // manifest's own URL, and the two are only interchangeable while it sits at the root.
             var status = await page.EvaluateAsync<int>(
-                "async src => (await fetch(src)).status", src);
+                "async ([src, base]) => (await fetch(new URL(src, base))).status",
+                new[] { src, manifestUrl });
 
             status.ShouldBe(200, $"the manifest declares {src}");
         }
@@ -113,8 +144,9 @@ public class InstallabilityTests
         // The other half of installability, and the half the manifest cannot express: a worker
         // whose scope does not cover start_url leaves the site uninstallable however complete the
         // manifest is.
-        var manifest = (await ManifestAsync()).GetProperty("body");
-        var startUrl = manifest.GetProperty("start_url").GetString()!;
+        var result = await ManifestAsync();
+        var manifestUrl = result.GetProperty("url").GetString()!;
+        var startUrl = result.GetProperty("body").GetProperty("start_url").GetString()!;
 
         var page = await _site.NewPageAsync();
         await page.GotoAsync(LiveSiteFixture.EntryPage);
@@ -122,13 +154,14 @@ public class InstallabilityTests
 
         var covered = await page.EvaluateAsync<bool>(
             """
-            async startUrl => {
-              const registration = await navigator.serviceWorker.getRegistration(startUrl);
+            async ([startUrl, base]) => {
+              // start_url is relative to the manifest, not to the page that linked it.
+              const resolved = new URL(startUrl, base).href;
+              const registration = await navigator.serviceWorker.getRegistration(resolved);
               if (!registration) return false;
-              return new URL(startUrl, location.origin).href
-                .startsWith(new URL(registration.scope).href);
+              return resolved.startsWith(new URL(registration.scope).href);
             }
-            """, startUrl);
+            """, new[] { startUrl, manifestUrl });
 
         covered.ShouldBeTrue($"no worker scope covers {startUrl}");
     }
