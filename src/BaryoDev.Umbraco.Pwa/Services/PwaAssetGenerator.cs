@@ -199,7 +199,8 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   const path = normalisePath(url.pathname);
-  if (SKIP.some((p) => path.startsWith(p))) return;
+  // "/umbraco/" must also skip "/umbraco" itself, which serves the backoffice without a redirect.
+  if (SKIP.some((p) => path.startsWith(p) || (p.endsWith("/") && path === p.slice(0, -1)))) return;
 
   // Live data: fresh when online, cached copy only as an offline fallback.
   if (path.startsWith(API_PREFIX)) {

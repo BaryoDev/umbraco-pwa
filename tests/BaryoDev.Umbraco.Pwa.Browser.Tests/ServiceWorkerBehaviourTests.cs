@@ -221,6 +221,27 @@ public class ServiceWorkerBehaviourTests
                  k.Contains("%75mbraco/", StringComparison.OrdinalIgnoreCase));
     }
 
+    [Theory]
+    [InlineData("/umbraco")]
+    [InlineData("/Umbraco")]
+    [InlineData("/%75mbraco")]
+    public async Task The_backoffice_is_never_cached_when_opened_without_a_trailing_slash(string variant)
+    {
+        // /umbraco is the address people type and the one the demo links to. It serves the
+        // backoffice without redirecting, and "/umbraco" does not start with "/umbraco/".
+        var page = await Installed();
+
+        await page.GotoAsync(variant);
+        await page.GotoAsync(LiveSiteFixture.EntryPage);
+        await page.EvaluateAsync("async () => { await fetch('/icon-192.png'); }");
+        await Settle(page);
+
+        var keys = await CacheKeys(page);
+        keys.ShouldNotContain(k => k.Equals("/umbraco", StringComparison.OrdinalIgnoreCase) ||
+                                   k.Equals("/%75mbraco", StringComparison.OrdinalIgnoreCase));
+        keys.ShouldContain("/icon-192.png");
+    }
+
     [Fact]
     public async Task A_successful_api_response_is_returned_live_and_cached()
     {

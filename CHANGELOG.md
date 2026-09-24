@@ -14,6 +14,11 @@ each covers and which test gates it.
 
 ### Fixed
 
+- **The service worker no longer caches the backoffice when it is opened as `/umbraco`.** The skip
+  check matched `/umbraco/` as a prefix, and `/umbraco` without the slash serves the backoffice
+  directly, so its HTML went into the shell cache and was served offline. A `SkipPaths` entry
+  ending in `/` now also matches the same path without the slash.
+
 - **The backoffice manifest declares the NuGet package id, so install telemetry reaches the
   listing.** Umbraco identifies a package in telemetry by the manifest `id`, falling back to the
   manifest `name` and then the `App_Plugins` folder name. Both fallbacks are `BaryoDev.Pwa` here
