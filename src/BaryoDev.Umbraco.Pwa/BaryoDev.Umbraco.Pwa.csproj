@@ -66,7 +66,7 @@
        A direct reference here raises the floor for consumers too, which is the point. Remove it
        when Umbraco 19 support lands (#66) and Examine 4 makes it redundant. -->
   <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="9.0.19" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.12" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
