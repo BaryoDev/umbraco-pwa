@@ -1,8 +1,13 @@
 // Regenerates docs/dashboard.png and docs/install-prompt.png, the two images the Marketplace
 // listing points at.
 //
-//   dotnet run --project tests/TestSite            # in one shell
-//   node tests/TestSite/screenshots.mjs            # in another
+//   npm ci --prefix tests                                              # once
+//   npx --prefix tests playwright install chromium                     # once
+//   dotnet run --project tests/TestSite --urls http://127.0.0.1:5199   # in one shell
+//   node tests/TestSite/screenshots.mjs                                # in another, from the root
+//
+// playwright is declared in tests/package.json rather than beside this file, so the web project
+// does not publish a package.json into the demo image.
 //
 // Both shots are of the shipped UI. Nothing here restyles the component or rewrites its copy; the
 // only thing supplied is data, and the reason each one needs it is noted below.
