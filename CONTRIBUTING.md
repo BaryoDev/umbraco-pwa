@@ -21,8 +21,8 @@ cd umbraco-pwa
 dotnet test
 ```
 
-That boots a real Umbraco on SQLite and runs 59 tests. First run takes a while because Umbraco
-cold-boots; after that it is seconds.
+That boots a real Umbraco on SQLite and runs every test project. First run takes a while because
+Umbraco cold-boots; after that it is seconds.
 
 To see it in a browser:
 

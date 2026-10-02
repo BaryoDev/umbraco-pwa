@@ -111,7 +111,7 @@ public class PwaInstallPromptOptions
 /// <summary>The web app manifest, which is what makes a site installable at all.</summary>
 public class PwaManifestOptions
 {
-    /// <summary>Falls back to the Umbraco site name when unset.</summary>
+    /// <summary>The manifest says <c>App</c> when unset, and the readiness check fails.</summary>
     public string? Name { get; set; }
 
     /// <summary>Shown under the home-screen icon, where space is tight. Defaults to Name.</summary>

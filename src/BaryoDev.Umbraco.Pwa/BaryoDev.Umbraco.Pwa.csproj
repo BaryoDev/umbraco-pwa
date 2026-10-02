@@ -24,7 +24,7 @@
     <Version>0.5.2</Version>
     <Authors>BaryoDev</Authors>
     <Title>PWA for Umbraco</Title>
-    <Description>Turn an Umbraco site into an installable, offline-capable app, and see who installed it from the backoffice. Install prompt for Android and iOS, a network-first service worker, and install tracking that stays in your own database rather than a third-party dashboard.</Description>
+    <Description>Turn an Umbraco site into an installable, offline-capable app, and see who installed it from the backoffice. Install prompt for Android and iOS, a service worker that keeps the site working offline, and install tracking that stays in your own database rather than a third-party dashboard.</Description>
     <PackageTags>umbraco;umbraco-marketplace;pwa;progressive-web-app;service-worker;offline;install</PackageTags>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageReadmeFile>README.md</PackageReadmeFile>

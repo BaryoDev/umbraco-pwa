@@ -3,7 +3,7 @@
   "PackageType": "Package",
   "Category": "Developer Tools",
   "AlternateCategory": "Campaign & Marketing",
-  "Description": "Make your Umbraco site installable and offline-capable, with install tracking that stays in your own database. Free and MIT licensed. The install prompt handles both Android and iOS, a network-first service worker keeps the site working offline, and adoption appears in the backoffice you are already signed into, so there is no third-party dashboard to log into and no sub-processor to declare. Try it first at https://dev-playground.baryo.dev, a real Umbraco running this package.",
+  "Description": "Make your Umbraco site installable and offline-capable, with install tracking that stays in your own database. Free and MIT licensed. The install prompt handles both Android and iOS, a service worker keeps the site working offline, and adoption appears in the backoffice you are already signed into, so there is no third-party dashboard to log into and no sub-processor to declare. Try it first at https://dev-playground.baryo.dev, a real Umbraco running this package.",
   "AuthorDetails": {
     "Name": "BaryoDev",
     "Description": "Small open source .NET and JavaScript packages.",
