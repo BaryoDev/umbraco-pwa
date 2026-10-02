@@ -1,6 +1,7 @@
 bin/
 obj/
 artifacts/
+node_modules/
 .DS_Store
 tests/TestSite/umbraco/
 *.user
