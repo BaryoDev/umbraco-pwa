@@ -324,7 +324,8 @@ public class ServiceWorkerBehaviourTests
     /// <remarks>
     /// The worker is registered here rather than by loading a page that ships the client script.
     /// That keeps these tests about the worker's behaviour: whether the client registers it is a
-    /// separate concern, covered elsewhere, and depending on it here meant the suite hung silently
+    /// separate concern, covered by <see cref="ClientBehaviourTests"/>, and depending on it here
+    /// meant the suite hung silently
     /// the first time the entry page turned out not to include the script.
     /// </remarks>
     private async Task<IPage> Installed()
