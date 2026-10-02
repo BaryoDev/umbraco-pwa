@@ -170,6 +170,25 @@ public class ReadinessTests
     }
 
     [Fact]
+    public async Task A_remote_icon_served_as_an_image_passes()
+    {
+        // The positive control for the four below. Each of them asserts a failure or a throw, so
+        // a remote branch that refused everything would pass all four.
+        var readiness = await CheckRemoteWith(new StubHttpMessageHandler(_ =>
+            new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent([0x89, 0x50, 0x4E, 0x47])
+                {
+                    Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png") },
+                },
+            }));
+
+        var check = readiness.Checks.Single(c => c.Name == "Icon 192x192");
+        check.Passed.ShouldBeTrue();
+        check.Detail.ShouldBe("https://cdn.example.test/icon.png");
+    }
+
+    [Fact]
     public async Task A_remote_icon_with_a_non_success_status_reports_the_http_status()
     {
         var readiness = await CheckRemoteWith(new StubHttpMessageHandler(_ =>
