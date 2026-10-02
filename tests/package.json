@@ -1,0 +1,8 @@
+{
+  "name": "baryodev-umbraco-pwa-screenshots",
+  "private": true,
+  "description": "Tooling for tests/TestSite/screenshots.mjs. Nothing here ships in the package.",
+  "devDependencies": {
+    "playwright": "1.62.0"
+  }
+}
