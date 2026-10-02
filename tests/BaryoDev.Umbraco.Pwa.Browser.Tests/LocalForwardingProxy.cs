@@ -38,7 +38,7 @@ internal sealed class LocalForwardingProxy : IAsyncDisposable
             try
             {
                 if (!ForwardingEnabled) return;
-                var headerBytes = await ReadHeadersAsync(downstream);
+                var (headerBytes, bodyStart) = await ReadHeadersAsync(downstream);
                 var header = Encoding.ASCII.GetString(headerBytes);
                 var end = header.IndexOf("\r\n", StringComparison.Ordinal);
                 if (end < 0) return;
@@ -62,14 +62,33 @@ internal sealed class LocalForwardingProxy : IAsyncDisposable
                 }
                 rewritten.Append("Connection: close\r\n\r\n");
                 await upstreamStream.WriteAsync(Encoding.ASCII.GetBytes(rewritten.ToString()), _stop.Token);
+
+                // A request with a body: whatever arrived with the headers, then the rest as it
+                // comes. Without this a POST reaches the site as headers only and neither side
+                // ever finishes.
+                await upstreamStream.WriteAsync(bodyStart, _stop.Token);
+                var body = PumpAsync(downstream, upstreamStream);
                 await upstreamStream.CopyToAsync(downstream, _stop.Token);
+                _ = body;
             }
             catch (IOException) { }
             catch (SocketException) { }
         }
     }
 
-    private static async Task<byte[]> ReadHeadersAsync(Stream stream)
+    private async Task PumpAsync(Stream from, Stream to)
+    {
+        try
+        {
+            await from.CopyToAsync(to, _stop.Token);
+        }
+        catch (IOException) { }
+        catch (SocketException) { }
+        catch (ObjectDisposedException) { }
+        catch (OperationCanceledException) { }
+    }
+
+    private static async Task<(byte[] Headers, byte[] BodyStart)> ReadHeadersAsync(Stream stream)
     {
         var bytes = new List<byte>();
         var buffer = new byte[1024];
@@ -78,9 +97,12 @@ internal sealed class LocalForwardingProxy : IAsyncDisposable
             var read = await stream.ReadAsync(buffer);
             if (read == 0) break;
             bytes.AddRange(buffer.AsSpan(0, read).ToArray());
-            if (bytes.Count >= 4 && bytes[^4..].SequenceEqual("\r\n\r\n"u8.ToArray())) break;
+
+            var all = bytes.ToArray();
+            var end = all.AsSpan().IndexOf("\r\n\r\n"u8);
+            if (end >= 0) return (all[..(end + 4)], all[(end + 4)..]);
         }
-        return bytes.ToArray();
+        return (bytes.ToArray(), []);
     }
 
     public async ValueTask DisposeAsync()

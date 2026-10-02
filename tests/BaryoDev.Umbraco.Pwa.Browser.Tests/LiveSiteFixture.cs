@@ -88,6 +88,12 @@ public class LiveSiteFixture : IAsyncLifetime
     /// </summary>
     public const string DashboardPage = "/dashboard-preview.html";
 
+    /// <summary>
+    /// The install prompt's app name. Markup on purpose: it reaches the banner through innerHTML,
+    /// so a suite that only ever configured a plain name could not tell escaping from luck.
+    /// </summary>
+    public const string HostileAppName = "<img src=x onerror=alert(1)>";
+
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(_dataDirectory);
@@ -218,6 +224,7 @@ public class LiveSiteFixture : IAsyncLifetime
 
         env["BaryoDev__Pwa__Manifest__Name"] = "Browser Fixture";
         env["BaryoDev__Pwa__Manifest__StartUrl"] = "/";
+        env["BaryoDev__Pwa__InstallPrompt__AppName"] = HostileAppName;
         env["BaryoDev__Pwa__ServiceWorker__CachePrefix"] = "browsertest";
         env["BaryoDev__Pwa__ServiceWorker__Version"] = "bt1";
         // A static file rather than "/", deliberately. A freshly installed Umbraco with no
