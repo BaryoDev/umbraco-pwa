@@ -21,7 +21,7 @@
 
   <PropertyGroup>
     <PackageId>BaryoDev.Umbraco.Pwa</PackageId>
-    <Version>0.5.1</Version>
+    <Version>0.5.2</Version>
     <Authors>BaryoDev</Authors>
     <Title>PWA for Umbraco</Title>
     <Description>Turn an Umbraco site into an installable, offline-capable app, and see who installed it from the backoffice. Install prompt for Android and iOS, a network-first service worker, and install tracking that stays in your own database rather than a third-party dashboard.</Description>
@@ -31,7 +31,7 @@
     <!-- NuGet shows this on the package page, and without it the listing has no changelog at all.
          The Umbraco Marketplace schema has no equivalent field, so this is the only place a
          release is described to someone deciding whether to upgrade. Update it every release. -->
-    <PackageReleaseNotes>A fix release. The service worker no longer caches the backoffice when it is opened as /umbraco without a trailing slash, which had put backoffice HTML into the offline shell cache. The backoffice manifest now declares the NuGet package id, so Umbraco install telemetry is counted against the Marketplace listing rather than the App_Plugins folder name. No API, configuration or schema changes. Full changelog: https://github.com/BaryoDev/umbraco-pwa/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>A maintenance release. On Umbraco 16 the pinned System.Security.Cryptography.Xml moves from 9.0.19 to 10.0.12; the package does not use the library and pins it only because Umbraco brings in a vulnerable version transitively. Umbraco 17 and 18 sites resolve the same versions as 0.5.1. No API, configuration or schema changes, and the generated service worker and client script are unchanged. Full changelog: https://github.com/BaryoDev/umbraco-pwa/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/BaryoDev/umbraco-pwa</PackageProjectUrl>
     <RepositoryUrl>https://github.com/BaryoDev/umbraco-pwa</RepositoryUrl>

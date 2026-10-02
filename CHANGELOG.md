@@ -12,6 +12,22 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-02
+
+### Changed
+
+- **On Umbraco 16 the pinned `System.Security.Cryptography.Xml` moves from 9.0.19 to 10.0.12.**
+  The package does not use the library. It pins it because Umbraco brings in a vulnerable version
+  transitively, and the pin is what a site installing this package ends up resolving. Umbraco 17
+  and 18 sites are unchanged at 10.0.11. ([#138])
+- The generated client script now runs in a real browser in the test suite: registration, the
+  install banner, the report it sends and the backoffice skip, 15 tests. Nothing in the script
+  changed. ([#49])
+- The Marketplace listing is also filed under Campaign & Marketing and carries five more tags.
+  ([#59])
+
+No API, configuration or schema changes.
+
 ## [0.5.1] - 2026-09-24
 
 ### Fixed
@@ -283,7 +299,8 @@ First release.
   offer installation.
 - Support for Umbraco 16, 17 and 18, with CI running the suite against each.
 
-[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.3.0...v0.4.0
@@ -321,3 +338,6 @@ First release.
 [#57]: https://github.com/BaryoDev/umbraco-pwa/issues/57
 [#58]: https://github.com/BaryoDev/umbraco-pwa/issues/58
 [#65]: https://github.com/BaryoDev/umbraco-pwa/issues/65
+[#138]: https://github.com/BaryoDev/umbraco-pwa/pull/138
+[#49]: https://github.com/BaryoDev/umbraco-pwa/issues/49
+[#59]: https://github.com/BaryoDev/umbraco-pwa/issues/59
