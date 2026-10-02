@@ -127,9 +127,10 @@ The dashboard does not care which client sent the report.
 
 ## Verified, not assumed
 
-57 tests run against a real Umbraco booting on SQLite, covering the migration, the endpoints, the
-generated assets and the dashboard registration. CI runs the whole suite against **every supported
-major**, because a version range in a csproj is a claim and this is the evidence for it:
+The integration tests run against a real Umbraco booting on SQLite, covering the migration, the
+endpoints, the generated assets and the dashboard registration. CI runs the whole suite against
+**every supported major**, because a version range in a csproj is a claim and this is the evidence
+for it:
 
 | Umbraco | Runtime | Support | Tests |
 | --- | --- | --- | --- |
