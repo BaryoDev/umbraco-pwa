@@ -20,6 +20,14 @@ each covers and which test gates it.
   global, which later versions do not have, so every request came back 401 and the dashboard
   showed nothing. It now asks the backoffice auth context for the token. ([#165])
 
+### Changed
+
+- **`System.Security.Cryptography.Xml` is pinned to 10.0.14 on every target, and
+  `System.Security.Cryptography.Pkcs` is pinned to 10.0.14.** Both have advisories published in
+  October 2026. The package uses neither; Umbraco brings in the vulnerable versions, and Umbraco
+  pin both themselves. New advisories in MessagePack and ImageSharp, which also come from Umbraco,
+  are suppressed with links to the Umbraco changes that fix them.
+
 No API, configuration or schema changes.
 
 ## [0.5.2] - 2026-10-02
