@@ -21,7 +21,7 @@
 
   <PropertyGroup>
     <PackageId>BaryoDev.Umbraco.Pwa</PackageId>
-    <Version>0.5.3</Version>
+    <Version>0.5.4</Version>
     <Authors>BaryoDev</Authors>
     <Title>PWA for Umbraco</Title>
     <Description>Turn an Umbraco site into an installable, offline-capable app, and see who installed it from the backoffice. Install prompt for Android and iOS, a service worker that keeps the site working offline, and install tracking that stays in your own database rather than a third-party dashboard.</Description>
@@ -31,7 +31,7 @@
     <!-- NuGet shows this on the package page, and without it the listing has no changelog at all.
          The Umbraco Marketplace schema has no equivalent field, so this is the only place a
          release is described to someone deciding whether to upgrade. Update it every release. -->
-    <PackageReleaseNotes>A maintenance release. The dashboard now works on Umbraco 16 to 18: it read its token from the Umbraco 13 backoffice global, so every request came back 401. System.Security.Cryptography.Xml and System.Security.Cryptography.Pkcs are pinned to 10.0.14 for advisories published in October 2026; the package uses neither and pins them only because Umbraco brings in vulnerable versions. No API, configuration or schema changes. Full changelog: https://github.com/BaryoDev/umbraco-pwa/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>A fix release. The dashboard now mounts on Umbraco 17 and 18. Those versions call provideContext() on a dashboard element as they mount it, and the dashboard was a plain HTMLElement without it, so the mount threw and Settings &gt; PWA stayed empty. 0.5.3 said the dashboard worked on Umbraco 16 to 18; it did not on 17 and 18, because this error came first. No API, configuration or schema changes. Full changelog: https://github.com/BaryoDev/umbraco-pwa/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/BaryoDev/umbraco-pwa</PackageProjectUrl>
     <RepositoryUrl>https://github.com/BaryoDev/umbraco-pwa</RepositoryUrl>

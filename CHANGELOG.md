@@ -12,6 +12,21 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-10-27
+
+### Fixed
+
+- **The dashboard mounts on Umbraco 17 and 18.** Those versions call `provideContext()` on a
+  dashboard element as they mount it. The dashboard was a plain `HTMLElement` without that method,
+  so the mount threw `provideContext is not a function` and Settings > PWA stayed empty. It now
+  extends Umbraco's `UmbElementMixin`, loaded from the backoffice import map. ([#169])
+
+0.5.3 said the dashboard worked on Umbraco 16 to 18. On 17 and 18 it did not: this error came
+before the token fix in 0.5.3 could run. The automated tests load the dashboard outside the real
+backoffice, so they did not see it.
+
+No API, configuration or schema changes.
+
 ## [0.5.3] - 2026-10-27
 
 ### Fixed
@@ -317,7 +332,8 @@ First release.
   offer installation.
 - Support for Umbraco 16, 17 and 18, with CI running the suite against each.
 
-[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.0...v0.5.1
@@ -358,6 +374,7 @@ First release.
 [#58]: https://github.com/BaryoDev/umbraco-pwa/issues/58
 [#65]: https://github.com/BaryoDev/umbraco-pwa/issues/65
 [#138]: https://github.com/BaryoDev/umbraco-pwa/pull/138
+[#169]: https://github.com/BaryoDev/umbraco-pwa/pull/169
 [#165]: https://github.com/BaryoDev/umbraco-pwa/pull/165
 [#49]: https://github.com/BaryoDev/umbraco-pwa/issues/49
 [#59]: https://github.com/BaryoDev/umbraco-pwa/issues/59
