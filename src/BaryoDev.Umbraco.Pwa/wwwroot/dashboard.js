@@ -1,13 +1,20 @@
 // PWA installs dashboard.
 //
-// Deliberately a plain custom element with no static imports and no build step. The backoffice already
+// Deliberately a custom element with no static imports and no build step. The backoffice already
 // ships the uui-* components used here, and a package that needs npm and a bundler to render one
 // table is a package that rots the first time the toolchain moves. The tradeoff is no Lit
 // templating, which for a single view is not much of a loss.
 
 const API = "/umbraco/management/api/v1/baryodev/pwa";
 
-class BaryoDevPwaDashboard extends HTMLElement {
+// Umbraco 17 and 18 call provideContext() on a dashboard as they mount it, which a bare HTMLElement
+// does not have, so the mount threw before anything rendered. The mixin comes from the backoffice's
+// own import map. Outside the backoffice there is none, and a plain element is enough.
+const Base = await import("@umbraco-cms/backoffice/element-api")
+  .then(({ UmbElementMixin }) => UmbElementMixin(HTMLElement))
+  .catch(() => HTMLElement);
+
+class BaryoDevPwaDashboard extends Base {
   #summary = null;
   #readiness = null;
   #rows = [];
@@ -17,6 +24,7 @@ class BaryoDevPwaDashboard extends HTMLElement {
   #auth = null;
 
   connectedCallback() {
+    super.connectedCallback?.();
     this.#render();
     this.#load();
   }
