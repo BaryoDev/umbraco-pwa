@@ -25,7 +25,7 @@ RUN sh scripts/source-hash.sh > /source-hash
 
 RUN dotnet publish tests/TestSite/TestSite.csproj -c Release -o /app
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:6a94333d37514e385650a3c81a55e5350b67253dbe136e9cf17e499c35606a8c
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:222759b391a1aaf241166672c8f99b2d4ada452e7b5319f3c6e8f265a37b5ad4
 WORKDIR /app
 COPY --from=build /app ./
 COPY --from=build /source-hash ./source-hash
