@@ -12,6 +12,16 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-10-27
+
+### Fixed
+
+- **The dashboard works on Umbraco 16 to 18.** It read its token from the Umbraco 13 backoffice
+  global, which later versions do not have, so every request came back 401 and the dashboard
+  showed nothing. It now asks the backoffice auth context for the token. ([#165])
+
+No API, configuration or schema changes.
+
 ## [0.5.2] - 2026-10-02
 
 ### Changed
@@ -299,7 +309,8 @@ First release.
   offer installation.
 - Support for Umbraco 16, 17 and 18, with CI running the suite against each.
 
-[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.4.0...v0.5.0
@@ -339,5 +350,6 @@ First release.
 [#58]: https://github.com/BaryoDev/umbraco-pwa/issues/58
 [#65]: https://github.com/BaryoDev/umbraco-pwa/issues/65
 [#138]: https://github.com/BaryoDev/umbraco-pwa/pull/138
+[#165]: https://github.com/BaryoDev/umbraco-pwa/pull/165
 [#49]: https://github.com/BaryoDev/umbraco-pwa/issues/49
 [#59]: https://github.com/BaryoDev/umbraco-pwa/issues/59
