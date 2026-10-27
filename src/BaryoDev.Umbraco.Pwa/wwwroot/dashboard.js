@@ -1,6 +1,6 @@
 // PWA installs dashboard.
 //
-// Deliberately a plain custom element with no imports and no build step. The backoffice already
+// Deliberately a plain custom element with no static imports and no build step. The backoffice already
 // ships the uui-* components used here, and a package that needs npm and a bundler to render one
 // table is a package that rots the first time the toolchain moves. The tradeoff is no Lit
 // templating, which for a single view is not much of a loss.
@@ -14,6 +14,7 @@ class BaryoDevPwaDashboard extends HTMLElement {
   #state = "loading"; // loading | ready | error
   #error = "";
   #installedOnly = false;
+  #auth = null;
 
   connectedCallback() {
     this.#render();
@@ -43,9 +44,7 @@ class BaryoDevPwaDashboard extends HTMLElement {
   }
 
   async #get(url) {
-    // The backoffice attaches its own auth to same-origin fetches through this token, so the
-    // dashboard never handles credentials itself.
-    const token = window.Umbraco?.Sys?.ServerVariables?.umbracoUrls?.authToken;
+    const token = await this.#token();
     const res = await fetch(url, {
       credentials: "same-origin",
       headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -58,6 +57,26 @@ class BaryoDevPwaDashboard extends HTMLElement {
       throw new Error(`Request failed (${res.status}).`);
     }
     return res.json();
+  }
+
+  // The backoffice (Umbraco 14 and later) hands out the signed-in user's token through its auth
+  // context. The imports resolve through the backoffice import map; outside it (the preview page)
+  // they fail and requests go without a token.
+  async #token() {
+    this.#auth ??= Promise.all([
+      import("@umbraco-cms/backoffice/context-api"),
+      import("@umbraco-cms/backoffice/auth"),
+    ])
+      .then(([{ UmbContextConsumer }, { UMB_AUTH_CONTEXT }]) => {
+        // asPromise() only waits; request() is what asks the backoffice for the context.
+        const consumer = new UmbContextConsumer(this, UMB_AUTH_CONTEXT);
+        const auth = consumer.asPromise();
+        consumer.request();
+        return auth;
+      })
+      .catch(() => null);
+    const auth = await this.#auth;
+    return auth ? auth.getLatestToken() : null;
   }
 
   #onToggleInstalled = (e) => {
