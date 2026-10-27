@@ -133,9 +133,8 @@ Publishing is gated and deliberately hard to do by accident:
 
 - It runs only on a `v*` tag push, or a manual dispatch that defaults to a dry run.
 - The version comes from `<Version>` in the csproj, never from an input, and the tag must match.
-- **It refuses to publish a build the playground has not run.** Deploy first with
-  `baryovm stack release umbraco-pwa`, which is also how the demo at `dev-playground.baryo.dev`
-  stays in step with the package rather than drifting behind it.
+- **It installs the packed package into a scratch site and loads it** before publishing, so the
+  bytes that ship are the bytes that were tested. It no longer checks a deployed playground.
 
 Two pieces of metadata have to move with the version, and nothing fails if they do not:
 
