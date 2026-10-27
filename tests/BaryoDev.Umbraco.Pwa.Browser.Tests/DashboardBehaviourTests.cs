@@ -185,10 +185,40 @@ public class DashboardBehaviourTests
         authHeaders.ShouldAllBe(h => h == "Bearer stub-token");
     }
 
+    [Fact]
+    public async Task The_dashboard_is_an_Umbraco_element_so_the_backoffice_can_mount_it()
+    {
+        var page = await _site.NewPageAsync();
+        // Umbraco 17 and 18 call provideContext() on a dashboard element as they mount it. The stub
+        // mixin adds it and records whether the element let the mixin connect.
+        await page.RouteAsync("**/backoffice-preview.html", route => route.FulfillAsync(new()
+        {
+            ContentType = "text/html",
+            Body = "<!doctype html><html><head>" + BackofficeImportMap +
+                "<script type=\"module\" src=\"/App_Plugins/BaryoDev.Pwa/dashboard.js\"></script></head>" +
+                "<body><baryodev-pwa-dashboard></baryodev-pwa-dashboard></body></html>",
+        }));
+        await page.RouteAsync(
+            "**/umbraco/management/api/v1/baryodev/pwa/**",
+            route => Respond(route, new DashboardResponses()));
+
+        await page.GotoAsync("/backoffice-preview.html");
+        await page.Locator("baryodev-pwa-dashboard .pwa-grid").WaitForAsync();
+
+        var mounted = await page.EvaluateAsync<bool>("""
+            () => {
+              const el = document.querySelector("baryodev-pwa-dashboard");
+              return typeof el.provideContext === "function" && !!el.provideContext("view", {}) && el.umbConnected === true;
+            }
+            """);
+        mounted.ShouldBeTrue();
+    }
+
     private const string BackofficeImportMap = """
         <script type="importmap">{"imports":{
           "@umbraco-cms/backoffice/context-api":"data:text/javascript,export class UmbContextConsumer{asPromise(){return new Promise(r=>this._r=r)}request(){this._r?.({getLatestToken:async()=>'stub-token'})}}",
-          "@umbraco-cms/backoffice/auth":"data:text/javascript,export const UMB_AUTH_CONTEXT='auth'"
+          "@umbraco-cms/backoffice/auth":"data:text/javascript,export const UMB_AUTH_CONTEXT='auth'",
+          "@umbraco-cms/backoffice/element-api":"data:text/javascript,export const UmbElementMixin=B=>class extends B{connectedCallback(){this.umbConnected=true}provideContext(){return{destroy(){}}}}"
         }}</script>
         """;
 
