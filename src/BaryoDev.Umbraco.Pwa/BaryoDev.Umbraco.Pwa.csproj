@@ -31,7 +31,7 @@
     <!-- NuGet shows this on the package page, and without it the listing has no changelog at all.
          The Umbraco Marketplace schema has no equivalent field, so this is the only place a
          release is described to someone deciding whether to upgrade. Update it every release. -->
-    <PackageReleaseNotes>A maintenance release. On Umbraco 16 the pinned System.Security.Cryptography.Xml moves from 9.0.19 to 10.0.12; the package does not use the library and pins it only because Umbraco brings in a vulnerable version transitively. Umbraco 17 and 18 sites resolve the same versions as 0.5.1. No API, configuration or schema changes, and the generated service worker and client script are unchanged. Full changelog: https://github.com/BaryoDev/umbraco-pwa/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>A maintenance release. The dashboard now works on Umbraco 16 to 18: it read its token from the Umbraco 13 backoffice global, so every request came back 401. System.Security.Cryptography.Xml and System.Security.Cryptography.Pkcs are pinned to 10.0.14 for advisories published in October 2026; the package uses neither and pins them only because Umbraco brings in vulnerable versions. No API, configuration or schema changes. Full changelog: https://github.com/BaryoDev/umbraco-pwa/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/BaryoDev/umbraco-pwa</PackageProjectUrl>
     <RepositoryUrl>https://github.com/BaryoDev/umbraco-pwa</RepositoryUrl>
@@ -64,13 +64,19 @@
        every site installing this package resolves a vulnerable assembly.
 
        A direct reference here raises the floor for consumers too, which is the point. Remove it
-       when Umbraco 19 support lands (#66) and Examine 4 makes it redundant. -->
-  <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.12" />
+       when Umbraco 19 support lands (#66) and Examine 4 makes it redundant.
+
+       10.0.14 on both targets: three more advisories in October 2026 (GHSA-7hqp-7c5m-4vq6,
+       GHSA-c399-9853-6jmj, GHSA-r955-8q5j-3h83) are fixed only from 10.0.13. -->
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.14" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-    <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.11" />
+  <!-- Pkcs for the same reason: two advisories published in October 2026 (GHSA-846f-f764-76mx,
+       GHSA-2fmv-rv2c-59x7), fixed in 10.0.13. It is the Xml library's sibling and Umbraco pin
+       both (umbraco/Umbraco-CMS#24298). Drop it with the Xml pin. -->
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
   </ItemGroup>
 
   <ItemGroup>
