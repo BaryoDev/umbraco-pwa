@@ -67,7 +67,13 @@ class BaryoDevPwaDashboard extends HTMLElement {
       import("@umbraco-cms/backoffice/context-api"),
       import("@umbraco-cms/backoffice/auth"),
     ])
-      .then(([{ UmbContextConsumer }, { UMB_AUTH_CONTEXT }]) => new UmbContextConsumer(this, UMB_AUTH_CONTEXT).asPromise())
+      .then(([{ UmbContextConsumer }, { UMB_AUTH_CONTEXT }]) => {
+        // asPromise() only waits; request() is what asks the backoffice for the context.
+        const consumer = new UmbContextConsumer(this, UMB_AUTH_CONTEXT);
+        const auth = consumer.asPromise();
+        consumer.request();
+        return auth;
+      })
       .catch(() => null);
     const auth = await this.#auth;
     return auth ? auth.getLatestToken() : null;

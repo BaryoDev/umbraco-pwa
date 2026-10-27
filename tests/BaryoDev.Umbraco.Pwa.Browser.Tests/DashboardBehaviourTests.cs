@@ -154,7 +154,9 @@ public class DashboardBehaviourTests
     {
         var page = await _site.NewPageAsync();
         var authHeaders = new List<string?>();
-        // A page with the backoffice import map, whose auth context hands out the token.
+        var allSent = new TaskCompletionSource();
+        // A page with the backoffice import map. Like the real consumer, the stub's asPromise() only
+        // resolves once request() has asked for the context.
         await page.RouteAsync("**/backoffice-preview.html", route => route.FulfillAsync(new()
         {
             ContentType = "text/html",
@@ -167,13 +169,17 @@ public class DashboardBehaviourTests
             lock (authHeaders)
             {
                 authHeaders.Add(route.Request.Headers.GetValueOrDefault("authorization"));
+                if (authHeaders.Count == 3)
+                {
+                    allSent.TrySetResult();
+                }
             }
 
             return Respond(route, new DashboardResponses());
         });
 
         await page.GotoAsync("/backoffice-preview.html");
-        await page.Locator("baryodev-pwa-dashboard .pwa-grid").WaitForAsync();
+        await allSent.Task.WaitAsync(TimeSpan.FromSeconds(10));
 
         authHeaders.Count.ShouldBe(3);
         authHeaders.ShouldAllBe(h => h == "Bearer stub-token");
@@ -181,7 +187,7 @@ public class DashboardBehaviourTests
 
     private const string BackofficeImportMap = """
         <script type="importmap">{"imports":{
-          "@umbraco-cms/backoffice/context-api":"data:text/javascript,export class UmbContextConsumer{asPromise(){return Promise.resolve({getLatestToken:async()=>'stub-token'})}}",
+          "@umbraco-cms/backoffice/context-api":"data:text/javascript,export class UmbContextConsumer{asPromise(){return new Promise(r=>this._r=r)}request(){this._r?.({getLatestToken:async()=>'stub-token'})}}",
           "@umbraco-cms/backoffice/auth":"data:text/javascript,export const UMB_AUTH_CONTEXT='auth'"
         }}</script>
         """;
