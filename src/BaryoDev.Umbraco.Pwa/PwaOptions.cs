@@ -106,6 +106,24 @@ public class PwaInstallPromptOptions
     /// an editor does not need to be asked to install the site they are editing.
     /// </summary>
     public List<string> HideOnPaths { get; set; } = new() { "/umbraco" };
+
+    /// <summary>
+    /// The visit on which the prompt may first appear. Visits are counted by day, so 2 means the
+    /// visitor has come back on a later day. 0 or 1 allows it on the first visit.
+    /// </summary>
+    public int MinVisits { get; set; } = 2;
+
+    /// <summary>
+    /// Percent of the page the visitor must scroll before the prompt shows (0 to 100). Either this
+    /// or <see cref="MinSecondsOnPage"/> is enough. Set both to 0 to skip the engagement wait.
+    /// </summary>
+    public int MinScrollPercent { get; set; } = 50;
+
+    /// <summary>
+    /// Seconds on one page before the prompt shows, if the visitor has not scrolled far enough.
+    /// Set to 0 to turn the timer off.
+    /// </summary>
+    public int MinSecondsOnPage { get; set; } = 30;
 }
 
 /// <summary>The web app manifest, which is what makes a site installable at all.</summary>

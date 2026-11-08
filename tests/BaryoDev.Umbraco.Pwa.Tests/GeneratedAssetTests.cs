@@ -376,6 +376,13 @@ public class InstallPromptTests
 
     private Task<string> Client() => _site.Client.GetStringAsync("/baryodev-pwa.js");
 
+    private sealed class FixedOptions(PwaOptions value) : IOptionsMonitor<PwaOptions>
+    {
+        public PwaOptions CurrentValue { get; } = value;
+        public PwaOptions Get(string? name) => CurrentValue;
+        public IDisposable? OnChange(Action<PwaOptions, string?> listener) => null;
+    }
+
     [Fact]
     public async Task The_prompt_waits_for_the_browser_to_confirm_the_site_qualifies()
     {
@@ -416,6 +423,44 @@ public class InstallPromptTests
 
         source.ShouldContain("bd_pwa_dismissed");
         source.ShouldContain("localStorage.setItem(DISMISS_KEY");
+    }
+
+    [Fact]
+    public async Task The_prompt_waits_for_the_default_engagement_thresholds()
+    {
+        var source = await Client();
+
+        source.ShouldContain("var MIN_VISITS = 2;");
+        source.ShouldContain("var MIN_SCROLL = 50;");
+        source.ShouldContain("var MIN_SECONDS = 30;");
+        source.ShouldContain("whenEngaged(");
+        source.ShouldContain("bd_pwa_visits");
+    }
+
+    [Fact]
+    public async Task The_prompt_is_built_only_after_the_engagement_check()
+    {
+        var source = await Client();
+
+        // The banner call sites sit inside whenEngaged or show(), never straight in maybePrompt.
+        var engaged = source.IndexOf("whenEngaged(function", StringComparison.Ordinal);
+        engaged.ShouldBeGreaterThan(-1);
+        source.IndexOf("function show()", StringComparison.Ordinal).ShouldBeGreaterThan(-1);
+    }
+
+    [Fact]
+    public void Engagement_thresholds_come_from_the_options()
+    {
+        var options = new PwaOptions();
+        options.InstallPrompt.MinVisits = 3;
+        options.InstallPrompt.MinScrollPercent = 80;
+        options.InstallPrompt.MinSecondsOnPage = 10;
+
+        var source = new PwaAssetGenerator(new FixedOptions(options)).Client();
+
+        source.ShouldContain("var MIN_VISITS = 3;");
+        source.ShouldContain("var MIN_SCROLL = 80;");
+        source.ShouldContain("var MIN_SECONDS = 10;");
     }
 
     [Fact]

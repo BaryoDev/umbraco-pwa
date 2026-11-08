@@ -12,6 +12,13 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+### Changed
+
+- **The install prompt waits for an engaged visitor.** It used to appear on the first page view.
+  It now shows from the second visit (counted by day) and after the visitor scrolls 50% of a page
+  or spends 30 seconds on it. Set `InstallPrompt.MinVisits`, `MinScrollPercent` and
+  `MinSecondsOnPage` to change this. Three new options, no other API changes.
+
 ## [0.5.4] - 2026-10-27
 
 ### Fixed
