@@ -225,6 +225,10 @@ public class LiveSiteFixture : IAsyncLifetime
         env["BaryoDev__Pwa__Manifest__Name"] = "Browser Fixture";
         env["BaryoDev__Pwa__Manifest__StartUrl"] = "/";
         env["BaryoDev__Pwa__InstallPrompt__AppName"] = HostileAppName;
+        // The banner tests need the prompt on the first view.
+        env["BaryoDev__Pwa__InstallPrompt__MinVisits"] = "0";
+        env["BaryoDev__Pwa__InstallPrompt__MinScrollPercent"] = "0";
+        env["BaryoDev__Pwa__InstallPrompt__MinSecondsOnPage"] = "0";
         env["BaryoDev__Pwa__ServiceWorker__CachePrefix"] = "browsertest";
         env["BaryoDev__Pwa__ServiceWorker__Version"] = "bt1";
         // A static file rather than "/", deliberately. A freshly installed Umbraco with no
