@@ -215,4 +215,16 @@ public class PwaServiceWorkerOptions
 
     /// <summary>Shown when a navigation fails offline and nothing is cached.</summary>
     public string NavigationFallback { get; set; } = "/";
+
+    /// <summary>
+    /// Scripts the generated worker loads with <c>importScripts</c>, first thing, so a site can
+    /// add its own handlers (push, sync) without replacing the worker.
+    /// </summary>
+    /// <remarks>
+    /// Only same-origin root-relative paths are accepted: one leading <c>/</c>, not <c>//</c>, and
+    /// no quotes, backslashes, whitespace or control characters. Anything else is dropped, and the
+    /// readiness check names it. Imported scripts run with the worker's full scope, so list only
+    /// scripts you trust.
+    /// </remarks>
+    public List<string> ImportScripts { get; set; } = new();
 }

@@ -188,6 +188,7 @@ internal class PwaReadinessService : IPwaReadinessService, IPwaStartupReadinessS
         });
 
         checks.Add(MemberContentCheck(o));
+        checks.Add(ImportScriptsCheck(o));
 
         checks.Add(new PwaCheck
         {
@@ -236,6 +237,27 @@ internal class PwaReadinessService : IPwaReadinessService, IPwaStartupReadinessS
                 : hasProtectedContent
                     ? "Responses for signed-in visitors are marked private, so the worker does not store them."
                     : "No member-protected content configured.",
+        };
+    }
+
+    /// <summary>Reports ImportScripts entries the worker dropped for not being root-relative paths.</summary>
+    private static PwaCheck ImportScriptsCheck(PwaOptions o)
+    {
+        var dropped = o.ServiceWorker.ImportScripts
+            .Where(s => !PwaAssetGenerator.IsValidImportScript(s))
+            .Select(s => s ?? "(null)")
+            .ToList();
+
+        return new PwaCheck
+        {
+            Name = "Imported worker scripts are valid",
+            Passed = dropped.Count == 0,
+            Advisory = true,
+            Detail = dropped.Count == 0
+                ? "Every ImportScripts entry is a root-relative path, or none are set."
+                : "Dropped from the service worker because they are not a same-origin path "
+                  + "starting with a single \"/\": " + string.Join(", ", dropped.Select(d => "'" + d + "'"))
+                  + ". Fix BaryoDev:Pwa:ServiceWorker:ImportScripts.",
         };
     }
 

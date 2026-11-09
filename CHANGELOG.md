@@ -12,6 +12,12 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+### Added
+
+- **`ServiceWorker.ImportScripts`.** A list of root-relative script paths the generated worker
+  loads with `importScripts`, so a site can add push or sync handlers. Invalid entries are dropped
+  and named by the readiness check.
+
 ### Changed
 
 - **The install prompt waits for an engaged visitor.** It used to appear on the first page view.

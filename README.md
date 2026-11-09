@@ -74,6 +74,20 @@ after they scroll half a page or stay 30 seconds. Set `MinScrollPercent` and `Mi
 blocks storage, visits cannot be counted and the prompt stays hidden unless `MinVisits` is `0` or
 `1`. Dismissing the prompt still hides it for good.
 
+### Extending the service worker
+
+To add your own handlers (push, background sync), list scripts for the worker to import:
+
+```json
+"ServiceWorker": {
+  "ImportScripts": [ "/App_Plugins/BaryoDev.PostAlerts/push-sw.js" ]
+}
+```
+
+They are loaded with `importScripts` as the first thing the worker does. Only paths on your own
+site that start with a single `/` are accepted, and anything else is dropped and flagged in the
+readiness check. Imported scripts run with the worker's full scope, so list only scripts you trust.
+
 ## It tells you why it is not working
 
 Browsers enforce installability silently. Miss a 512px icon, or point at one that 404s, and Chrome

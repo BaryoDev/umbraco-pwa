@@ -40,6 +40,76 @@ public class GeneratedAssetTests
         public IDisposable? OnChange(Action<PwaOptions, string?> listener) => null;
     }
 
+    private static string WorkerWith(params string[] imports) =>
+        Generator(o => o.ServiceWorker.ImportScripts = [.. imports]).ServiceWorker();
+
+    [Fact]
+    public void One_import_is_the_first_line_of_the_worker()
+    {
+        var worker = WorkerWith("/App_Plugins/BaryoDev.PostAlerts/push-sw.js");
+
+        worker.ShouldStartWith("importScripts(\"/App_Plugins/BaryoDev.PostAlerts/push-sw.js\");\n");
+    }
+
+    [Fact]
+    public void Two_imports_share_one_call_in_order()
+    {
+        var worker = WorkerWith("/a.js", "/b.js");
+
+        worker.ShouldStartWith("importScripts(\"/a.js\", \"/b.js\");\n");
+    }
+
+    [Fact]
+    public void No_imports_emits_no_importScripts()
+    {
+        Generator().ServiceWorker().ShouldNotContain("importScripts");
+    }
+
+    [Theory]
+    [InlineData("https://evil.example/x.js")]
+    [InlineData("//x")]
+    [InlineData("//evil.example/x.js")]
+    [InlineData("x.js")]
+    [InlineData("")]
+    [InlineData("/a\"b.js")]
+    [InlineData("/a\\b.js")]
+    [InlineData("/a b.js")]
+    public void Invalid_imports_are_dropped(string bad)
+    {
+        var worker = WorkerWith(bad, "/ok.js");
+
+        worker.ShouldStartWith("importScripts(\"/ok.js\");\n");
+        worker.ShouldNotContain(bad.Length == 0 ? "importScripts(\"\"" : bad);
+    }
+
+    [Fact]
+    public void Only_invalid_imports_emit_nothing()
+    {
+        WorkerWith("//x", "x.js").ShouldNotContain("importScripts");
+    }
+
+    [Fact]
+    public void Script_breaking_characters_in_an_import_are_escaped()
+    {
+        var worker = WorkerWith("/a&b<c>'d.js");
+
+        var line = worker.Split('\n')[0];
+        line.ShouldBe("importScripts(" + JsonSerializer.Serialize("/a&b<c>'d.js") + ");");
+        line.ShouldNotContain("<");
+        line.ShouldNotContain("'");
+    }
+
+    [Fact]
+    public void Changing_the_import_list_changes_the_worker()
+    {
+        var none = Generator().ServiceWorker();
+        var one = WorkerWith("/a.js");
+        var other = WorkerWith("/b.js");
+
+        one.ShouldNotBe(none);
+        other.ShouldNotBe(one);
+    }
+
     [Theory]
     [InlineData("/manifest.webmanifest", "application/manifest+json")]
     [InlineData("/sw.js", "text/javascript")]
