@@ -10,7 +10,7 @@ There are five public surfaces, not one: the assembly API, the configuration key
 contract, the database table and the generated asset URLs. [VERSIONING.md](VERSIONING.md) says what
 each covers and which test gates it.
 
-## [Unreleased]
+## [0.6.0] - 2026-11-09
 
 ### Added
 
