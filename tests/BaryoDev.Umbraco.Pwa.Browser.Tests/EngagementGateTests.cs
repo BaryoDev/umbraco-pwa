@@ -167,25 +167,46 @@ public class EngagementGateTests
             url => new Uri(url).AbsolutePath.EndsWith("/client-shell", StringComparison.Ordinal),
             route => route.FulfillAsync(new() { ContentType = "text/html", Body = TallShell }));
 
+        // The script is read once through a real page, then served from memory. A route that
+        // fetched it on each request hung in CI, and an exception inside a route handler leaves
+        // the request pending, so the replacement happens here where a failure fails the test.
+        var script = await ServedScriptAsync();
+        script = Replace(script, "MIN_VISITS", minVisits);
+        script = Replace(script, "MIN_SCROLL", minScroll);
+        script = Replace(script, "MIN_SECONDS", minSeconds);
         await page.RouteAsync(
             url => new Uri(url).AbsolutePath == "/baryodev-pwa.js",
-            async route =>
-            {
-                var response = await route.FetchAsync();
-                var script = await response.TextAsync();
-                script = Replace(script, "MIN_VISITS", minVisits);
-                script = Replace(script, "MIN_SCROLL", minScroll);
-                script = Replace(script, "MIN_SECONDS", minSeconds);
-                await route.FulfillAsync(new()
-                {
-                    ContentType = "application/javascript",
-                    Body = script,
-                });
-            });
+            route => route.FulfillAsync(new() { ContentType = "application/javascript", Body = script }));
 
         await page.Clock.InstallAsync();
         await page.GotoAsync("/client-shell");
         return page;
+    }
+
+    private static string? _servedScript;
+
+    /// <summary>The script as the site serves it, read in a throwaway context so no visit is counted.</summary>
+    private async Task<string> ServedScriptAsync()
+    {
+        if (_servedScript is not null) return _servedScript;
+        var context = await _site.Browser.NewContextAsync(new()
+        {
+            BaseURL = _site.BaseUrl,
+            ServiceWorkers = ServiceWorkerPolicy.Block,
+        });
+        try
+        {
+            var reader = await context.NewPageAsync();
+            var response = await reader.GotoAsync("/baryodev-pwa.js");
+            response.ShouldNotBeNull();
+            response!.Ok.ShouldBeTrue("the site did not serve /baryodev-pwa.js");
+            _servedScript = await response.TextAsync();
+            return _servedScript;
+        }
+        finally
+        {
+            await context.CloseAsync();
+        }
     }
 
     /// <summary>Fails loudly when the constant is gone, so a rename cannot turn these into no-ops.</summary>
