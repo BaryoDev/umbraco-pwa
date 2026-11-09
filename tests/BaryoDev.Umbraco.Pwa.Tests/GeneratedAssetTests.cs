@@ -508,6 +508,31 @@ public class InstallPromptTests
     }
 
     [Fact]
+    public async Task Either_page_threshold_at_zero_makes_the_visitor_engaged_at_once()
+    {
+        var source = await Client();
+
+        source.ShouldContain("if (MIN_SCROLL <= 0 || MIN_SECONDS <= 0) { ready(); return; }");
+        source.ShouldNotContain("MIN_SCROLL <= 0 && MIN_SECONDS <= 0");
+    }
+
+    [Theory]
+    [InlineData(0, 30)]
+    [InlineData(50, 0)]
+    [InlineData(0, 0)]
+    public void A_zero_page_threshold_is_emitted_as_zero(int scroll, int seconds)
+    {
+        var options = new PwaOptions();
+        options.InstallPrompt.MinScrollPercent = scroll;
+        options.InstallPrompt.MinSecondsOnPage = seconds;
+
+        var source = new PwaAssetGenerator(new FixedOptions(options)).Client();
+
+        source.ShouldContain($"var MIN_SCROLL = {scroll};");
+        source.ShouldContain($"var MIN_SECONDS = {seconds};");
+    }
+
+    [Fact]
     public async Task The_prompt_is_built_only_after_the_engagement_check()
     {
         var source = await Client();

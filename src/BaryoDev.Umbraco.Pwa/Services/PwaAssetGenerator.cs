@@ -483,10 +483,11 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Calls ready once, when the visitor has scrolled far enough or stayed long enough on this page.
-  // With both thresholds at zero the visitor counts as engaged straight away.
+  // A threshold of zero means that half of the rule is already met, so either one at zero makes
+  // the visitor engaged straight away.
   function whenEngaged(ready) {
     if (countVisit() < MIN_VISITS) return;
-    if (MIN_SCROLL <= 0 && MIN_SECONDS <= 0) { ready(); return; }
+    if (MIN_SCROLL <= 0 || MIN_SECONDS <= 0) { ready(); return; }
 
     var done = false;
     var timer = null;

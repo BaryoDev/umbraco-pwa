@@ -69,8 +69,8 @@ are the difference between the package working and appearing not to.
 | `InstallPrompt.MinSecondsOnPage` | `30` | Seconds on one page that also count. Scroll or time is enough |
 
 The install prompt waits for an engaged visitor. It shows on their second visit or later, and only
-after they scroll half a page or stay 30 seconds. Set `MinScrollPercent` and `MinSecondsOnPage` to
-`0` to drop the page wait, and `MinVisits` to `0` to show it on the first visit. If the browser
+after they scroll half a page or stay 30 seconds. Set `MinScrollPercent` or `MinSecondsOnPage` to
+`0` to drop the page wait (either one at `0` counts as already met), and `MinVisits` to `0` to show it on the first visit. If the browser
 blocks storage, visits cannot be counted and the prompt stays hidden unless `MinVisits` is `0` or
 `1`. Dismissing the prompt still hides it for good.
 
