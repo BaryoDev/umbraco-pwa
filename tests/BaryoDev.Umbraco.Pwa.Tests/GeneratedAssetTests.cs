@@ -40,6 +40,76 @@ public class GeneratedAssetTests
         public IDisposable? OnChange(Action<PwaOptions, string?> listener) => null;
     }
 
+    private static string WorkerWith(params string[] imports) =>
+        Generator(o => o.ServiceWorker.ImportScripts = [.. imports]).ServiceWorker();
+
+    [Fact]
+    public void One_import_is_the_first_line_of_the_worker()
+    {
+        var worker = WorkerWith("/App_Plugins/BaryoDev.PostAlerts/push-sw.js");
+
+        worker.ShouldStartWith("importScripts(\"/App_Plugins/BaryoDev.PostAlerts/push-sw.js\");\n");
+    }
+
+    [Fact]
+    public void Two_imports_share_one_call_in_order()
+    {
+        var worker = WorkerWith("/a.js", "/b.js");
+
+        worker.ShouldStartWith("importScripts(\"/a.js\", \"/b.js\");\n");
+    }
+
+    [Fact]
+    public void No_imports_emits_no_importScripts()
+    {
+        Generator().ServiceWorker().ShouldNotContain("importScripts");
+    }
+
+    [Theory]
+    [InlineData("https://evil.example/x.js")]
+    [InlineData("//x")]
+    [InlineData("//evil.example/x.js")]
+    [InlineData("x.js")]
+    [InlineData("")]
+    [InlineData("/a\"b.js")]
+    [InlineData("/a\\b.js")]
+    [InlineData("/a b.js")]
+    public void Invalid_imports_are_dropped(string bad)
+    {
+        var worker = WorkerWith(bad, "/ok.js");
+
+        worker.ShouldStartWith("importScripts(\"/ok.js\");\n");
+        worker.ShouldNotContain(bad.Length == 0 ? "importScripts(\"\"" : bad);
+    }
+
+    [Fact]
+    public void Only_invalid_imports_emit_nothing()
+    {
+        WorkerWith("//x", "x.js").ShouldNotContain("importScripts");
+    }
+
+    [Fact]
+    public void Script_breaking_characters_in_an_import_are_escaped()
+    {
+        var worker = WorkerWith("/a&b<c>'d.js");
+
+        var line = worker.Split('\n')[0];
+        line.ShouldBe("importScripts(" + JsonSerializer.Serialize("/a&b<c>'d.js") + ");");
+        line.ShouldNotContain("<");
+        line.ShouldNotContain("'");
+    }
+
+    [Fact]
+    public void Changing_the_import_list_changes_the_worker()
+    {
+        var none = Generator().ServiceWorker();
+        var one = WorkerWith("/a.js");
+        var other = WorkerWith("/b.js");
+
+        one.ShouldNotBe(none);
+        other.ShouldNotBe(one);
+    }
+
     [Theory]
     [InlineData("/manifest.webmanifest", "application/manifest+json")]
     [InlineData("/sw.js", "text/javascript")]
@@ -376,6 +446,13 @@ public class InstallPromptTests
 
     private Task<string> Client() => _site.Client.GetStringAsync("/baryodev-pwa.js");
 
+    private sealed class FixedOptions(PwaOptions value) : IOptionsMonitor<PwaOptions>
+    {
+        public PwaOptions CurrentValue { get; } = value;
+        public PwaOptions Get(string? name) => CurrentValue;
+        public IDisposable? OnChange(Action<PwaOptions, string?> listener) => null;
+    }
+
     [Fact]
     public async Task The_prompt_waits_for_the_browser_to_confirm_the_site_qualifies()
     {
@@ -416,6 +493,69 @@ public class InstallPromptTests
 
         source.ShouldContain("bd_pwa_dismissed");
         source.ShouldContain("localStorage.setItem(DISMISS_KEY");
+    }
+
+    [Fact]
+    public async Task The_prompt_waits_for_the_default_engagement_thresholds()
+    {
+        var source = await Client();
+
+        source.ShouldContain("var MIN_VISITS = 2;");
+        source.ShouldContain("var MIN_SCROLL = 50;");
+        source.ShouldContain("var MIN_SECONDS = 30;");
+        source.ShouldContain("whenEngaged(");
+        source.ShouldContain("bd_pwa_visits");
+    }
+
+    [Fact]
+    public async Task Either_page_threshold_at_zero_makes_the_visitor_engaged_at_once()
+    {
+        var source = await Client();
+
+        source.ShouldContain("if (MIN_SCROLL <= 0 || MIN_SECONDS <= 0) { ready(); return; }");
+        source.ShouldNotContain("MIN_SCROLL <= 0 && MIN_SECONDS <= 0");
+    }
+
+    [Theory]
+    [InlineData(0, 30)]
+    [InlineData(50, 0)]
+    [InlineData(0, 0)]
+    public void A_zero_page_threshold_is_emitted_as_zero(int scroll, int seconds)
+    {
+        var options = new PwaOptions();
+        options.InstallPrompt.MinScrollPercent = scroll;
+        options.InstallPrompt.MinSecondsOnPage = seconds;
+
+        var source = new PwaAssetGenerator(new FixedOptions(options)).Client();
+
+        source.ShouldContain($"var MIN_SCROLL = {scroll};");
+        source.ShouldContain($"var MIN_SECONDS = {seconds};");
+    }
+
+    [Fact]
+    public async Task The_prompt_is_built_only_after_the_engagement_check()
+    {
+        var source = await Client();
+
+        // The banner call sites sit inside whenEngaged or show(), never straight in maybePrompt.
+        var engaged = source.IndexOf("whenEngaged(function", StringComparison.Ordinal);
+        engaged.ShouldBeGreaterThan(-1);
+        source.IndexOf("function show()", StringComparison.Ordinal).ShouldBeGreaterThan(-1);
+    }
+
+    [Fact]
+    public void Engagement_thresholds_come_from_the_options()
+    {
+        var options = new PwaOptions();
+        options.InstallPrompt.MinVisits = 3;
+        options.InstallPrompt.MinScrollPercent = 80;
+        options.InstallPrompt.MinSecondsOnPage = 10;
+
+        var source = new PwaAssetGenerator(new FixedOptions(options)).Client();
+
+        source.ShouldContain("var MIN_VISITS = 3;");
+        source.ShouldContain("var MIN_SCROLL = 80;");
+        source.ShouldContain("var MIN_SECONDS = 10;");
     }
 
     [Fact]

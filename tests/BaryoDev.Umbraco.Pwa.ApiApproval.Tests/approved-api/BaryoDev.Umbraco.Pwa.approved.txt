@@ -115,6 +115,9 @@ namespace BaryoDev.Umbraco.Pwa
         public bool Enabled { get; set; }
         public System.Collections.Generic.List<string> HideOnPaths { get; set; }
         public string? IconUrl { get; set; }
+        public int MinScrollPercent { get; set; }
+        public int MinSecondsOnPage { get; set; }
+        public int MinVisits { get; set; }
     }
     public class PwaManifestOptions
     {
@@ -148,6 +151,7 @@ namespace BaryoDev.Umbraco.Pwa
         public PwaServiceWorkerOptions() { }
         public string ApiPrefix { get; set; }
         public string CachePrefix { get; set; }
+        public System.Collections.Generic.List<string> ImportScripts { get; set; }
         public string NavigationFallback { get; set; }
         public System.Collections.Generic.List<string> SkipPaths { get; set; }
         public string? Version { get; set; }

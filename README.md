@@ -64,6 +64,29 @@ are the difference between the package working and appearing not to.
 | `RetentionDays` | `0` | Zero keeps rows forever |
 | `ServeAssets` | `true` | Off if the site already ships its own `sw.js` |
 | `ServiceWorker.Version` | assembly version | Change per deploy to purge stale cached assets |
+| `InstallPrompt.MinVisits` | `2` | The visit on which the install prompt may first show. Visits are counted by day. `0` or `1` allows the first visit |
+| `InstallPrompt.MinScrollPercent` | `50` | Percent of the page the visitor must scroll first |
+| `InstallPrompt.MinSecondsOnPage` | `30` | Seconds on one page that also count. Scroll or time is enough |
+
+The install prompt waits for an engaged visitor. It shows on their second visit or later, and only
+after they scroll half a page or stay 30 seconds. Set `MinScrollPercent` or `MinSecondsOnPage` to
+`0` to drop the page wait (either one at `0` counts as already met), and `MinVisits` to `0` to show it on the first visit. If the browser
+blocks storage, visits cannot be counted and the prompt stays hidden unless `MinVisits` is `0` or
+`1`. Dismissing the prompt still hides it for good.
+
+### Extending the service worker
+
+To add your own handlers (push, background sync), list scripts for the worker to import:
+
+```json
+"ServiceWorker": {
+  "ImportScripts": [ "/App_Plugins/BaryoDev.PostAlerts/push-sw.js" ]
+}
+```
+
+They are loaded with `importScripts` as the first thing the worker does. Only paths on your own
+site that start with a single `/` are accepted, and anything else is dropped and flagged in the
+readiness check. Imported scripts run with the worker's full scope, so list only scripts you trust.
 
 ## It tells you why it is not working
 

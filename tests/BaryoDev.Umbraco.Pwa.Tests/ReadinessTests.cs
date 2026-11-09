@@ -83,6 +83,47 @@ public class ReadinessTests
         return readiness.Checks.Single(c => c.Name == "Member content stays out of the cache");
     }
 
+    private async Task<PwaCheck> ImportCheck(params string[] imports)
+    {
+        var options = new PwaOptions
+        {
+            Manifest = new PwaManifestOptions { Name = "Import check", StartUrl = "/demo.html" },
+        };
+        options.ServiceWorker.ImportScripts = [.. imports];
+
+        var service = new PwaReadinessService(
+            new StaticOptionsMonitor(options),
+            new StubHttpClientFactory(new StubHttpMessageHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.NotFound))),
+            _site.Resolve<IWebHostEnvironment>(),
+            _site.Resolve<IDocumentUrlService>(),
+            new StubPublicAccess());
+
+        var context = new DefaultHttpContext();
+        context.Request.Scheme = "https";
+        context.Request.Host = new HostString("example.test");
+
+        var readiness = await service.CheckAsync(context.Request);
+        return readiness.Checks.Single(c => c.Name == "Imported worker scripts are valid");
+    }
+
+    [Fact]
+    public async Task Dropped_import_scripts_are_named_in_an_advisory_check()
+    {
+        var check = await ImportCheck("/ok.js", "https://evil.example/x.js");
+
+        check.Passed.ShouldBeFalse();
+        check.Advisory.ShouldBeTrue();
+        check.Detail.ShouldContain("https://evil.example/x.js");
+        check.Detail.ShouldNotContain("/ok.js");
+    }
+
+    [Fact]
+    public async Task Valid_or_absent_import_scripts_pass_the_check()
+    {
+        (await ImportCheck()).Passed.ShouldBeTrue();
+        (await ImportCheck("/ok.js")).Passed.ShouldBeTrue();
+    }
+
     [Fact]
     public async Task A_site_that_turned_the_protection_off_and_excluded_nothing_is_warned()
     {

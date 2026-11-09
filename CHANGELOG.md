@@ -10,7 +10,20 @@ There are five public surfaces, not one: the assembly API, the configuration key
 contract, the database table and the generated asset URLs. [VERSIONING.md](VERSIONING.md) says what
 each covers and which test gates it.
 
-## [Unreleased]
+## [0.6.0] - 2026-11-09
+
+### Added
+
+- **`ServiceWorker.ImportScripts`.** A list of root-relative script paths the generated worker
+  loads with `importScripts`, so a site can add push or sync handlers. Invalid entries are dropped
+  and named by the readiness check.
+
+### Changed
+
+- **The install prompt waits for an engaged visitor.** It used to appear on the first page view.
+  It now shows from the second visit (counted by day) and after the visitor scrolls 50% of a page
+  or spends 30 seconds on it. Set `InstallPrompt.MinVisits`, `MinScrollPercent` and
+  `MinSecondsOnPage` to change this. Three new options, no other API changes.
 
 ## [0.5.4] - 2026-10-27
 
@@ -332,7 +345,8 @@ First release.
   offer installation.
 - Support for Umbraco 16, 17 and 18, with CI running the suite against each.
 
-[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.4...v0.6.0
 [0.5.4]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.1...v0.5.2
