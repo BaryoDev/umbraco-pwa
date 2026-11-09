@@ -31,7 +31,7 @@
     <!-- NuGet shows this on the package page, and without it the listing has no changelog at all.
          The Umbraco Marketplace schema has no equivalent field, so this is the only place a
          release is described to someone deciding whether to upgrade. Update it every release. -->
-    <PackageReleaseNotes>A fix release. The dashboard now mounts on Umbraco 17 and 18. Those versions call provideContext() on a dashboard element as they mount it, and the dashboard was a plain HTMLElement without it, so the mount threw and Settings &gt; PWA stayed empty. 0.5.3 said the dashboard worked on Umbraco 16 to 18; it did not on 17 and 18, because this error came first. No API, configuration or schema changes. Full changelog: https://github.com/BaryoDev/umbraco-pwa/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>The install prompt now waits for an engaged visitor. It shows from the second visit, then after the visitor scrolls 50% of a page or spends 30 seconds on it. Three new options change this: InstallPrompt:MinVisits, InstallPrompt:MinScrollPercent and InstallPrompt:MinSecondsOnPage. Set them to 0 for the old behaviour of showing at once. Also new is ServiceWorker:ImportScripts, a list of root-relative script paths the generated worker loads with importScripts, for push or sync handlers. No other API changes. Full changelog: https://github.com/BaryoDev/umbraco-pwa/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/BaryoDev/umbraco-pwa</PackageProjectUrl>
     <RepositoryUrl>https://github.com/BaryoDev/umbraco-pwa</RepositoryUrl>
