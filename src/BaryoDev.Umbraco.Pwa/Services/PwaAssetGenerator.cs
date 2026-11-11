@@ -272,19 +272,22 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(req).then(
-      (cached) =>
-        cached ||
-        fetch(req).then((resp) => {
-          if (storable(resp)) {
-            const copy = resp.clone();
-            caches.open(SHELL).then((c) => c.put(req, copy));
-          }
-          return resp;
-        }),
-    ),
-  );
+  // Plain assets: stale-while-revalidate. A cached copy answers at once and the network refreshes
+  // it in the background, so a changed asset is current by the next request. Cache-first would be
+  // faster, but it is only safe for fingerprinted URLs, and the package cannot know whether a site
+  // fingerprints its assets, so a cached copy is never trusted to stay valid forever.
+  const refresh = fetch(req).then((resp) => {
+    if (!storable(resp)) return resp;
+    const copy = resp.clone();
+    return caches
+      .open(SHELL)
+      .then((c) => c.put(req, copy))
+      .then(() => resp);
+  });
+  // The refresh outlives the response when a cached copy answers, so the worker must not be
+  // stopped before it lands. Offline it fails quietly; the cached copy already answered.
+  event.waitUntil(refresh.catch(() => {}));
+  event.respondWith(caches.match(req).then((cached) => cached || refresh));
 });
 """;
     }

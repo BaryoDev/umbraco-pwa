@@ -129,6 +129,28 @@ public class ServiceWorkerBehaviourTests
     }
 
     [Fact]
+    public async Task A_cached_asset_answers_at_once_and_is_refreshed_from_the_network()
+    {
+        // The defect this covers: plain assets were cache-first and never revalidated, so an asset
+        // that changed on the server was served from the first cached copy until the cache version
+        // changed. The positive half matters too: the second request must still be answered from
+        // the cache, or the worker has simply stopped caching assets.
+        var page = await Installed();
+        var url = $"/changing-asset?k={Guid.NewGuid():N}";
+
+        var first = await page.EvaluateAsync<string>($"async () => (await fetch('{url}')).text()");
+        await Settle(page);
+        var second = await page.EvaluateAsync<string>($"async () => (await fetch('{url}')).text()");
+        await Settle(page);
+        var stored = await page.EvaluateAsync<string>(
+            $"async () => {{ const r = await caches.match('{url}'); return r ? r.text() : null; }}");
+
+        first.ShouldBe("version 1");
+        second.ShouldBe("version 1");
+        stored.ShouldBe("version 2");
+    }
+
+    [Fact]
     public async Task A_no_store_response_is_never_cached_but_an_ordinary_response_is()
     {
         var page = await Installed();

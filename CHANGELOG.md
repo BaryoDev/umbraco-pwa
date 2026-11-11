@@ -10,6 +10,19 @@ There are five public surfaces, not one: the assembly API, the configuration key
 contract, the database table and the generated asset URLs. [VERSIONING.md](VERSIONING.md) says what
 each covers and which test gates it.
 
+## [Unreleased]
+
+### Changed
+
+- **Plain assets are stale-while-revalidate.** A cached script, style or image still answers at
+  once, and the worker now refreshes it from the network on the same request. They used to be
+  cache-first and were never revalidated, so a file changed on the server stayed stale until
+  `ServiceWorker.Version` changed. No configuration or API change.
+
+### Documentation
+
+- **The README says what the worker caches and for how long.**
+
 ## [0.6.0] - 2026-11-09
 
 ### Added
