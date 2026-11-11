@@ -17,7 +17,9 @@ each covers and which test gates it.
 - **Plain assets are stale-while-revalidate.** A cached script, style or image still answers at
   once, and the worker now refreshes it from the network on the same request. They used to be
   cache-first and were never revalidated, so a file changed on the server stayed stale until
-  `ServiceWorker.Version` changed. No configuration or API change.
+  `ServiceWorker.Version` changed. The refresh is a conditional request, so an unchanged file costs a 304, and a refused cache
+  write never fails the request. Partial (206) responses are no longer offered to the cache.
+  No configuration or API change.
 
 ### Documentation
 

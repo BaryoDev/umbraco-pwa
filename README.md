@@ -92,8 +92,8 @@ readiness check. Imported scripts run with the worker's full scope, so list only
 
 - **Pages** are fetched from the network first. A copy is kept only to answer when the visitor is offline, and the offline page is used when there is no copy.
 - **API responses** under `ApiPrefix` (default `/api/`) are fetched live. A copy is kept only as an offline fallback, and offline requests with no copy get a 503.
-- **Other same-origin files** (scripts, styles, images, media) are served from the cache when there is a copy, and refreshed from the network in the background on the same request, so a changed file is current by the next visit.
-- **Never stored:** anything under `SkipPaths` (the backoffice by default), other origins, error responses, redirects, and any response with `Cache-Control: no-store` or `private`. Responses for signed-in visitors are marked `private` by default.
+- **Other same-origin files** (scripts, styles, images, media) are served from the cache when there is a copy, and revalidated in the background on the same request with a conditional request (an unchanged file costs a 304), so a changed file is current by the next view.
+- **Never stored:** anything under `SkipPaths` (the backoffice by default), other origins, error responses, redirects, partial (206) responses, and any response with `Cache-Control: no-store` or `private`. Responses for signed-in visitors are marked `private` by default.
 - **How long:** until the next refresh replaces it, or until `ServiceWorker.Version` changes, which clears everything.
 
 Media files are served publicly by Umbraco, since public access protects content pages, not files in `/media/`. If you protect files some other way, add their path to `SkipPaths`.

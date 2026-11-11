@@ -147,8 +147,8 @@ These are the honest answers to "where would you attack it", and each is either 
    anonymous case is covered, but that passes because Umbraco guards the whole management API
    surface, not because of this package's policy. Filed as #104. This is the first place to look.
 2. **The dashboard's `innerHTML` construction.** Correct today, structurally fragile.
-3. **The service worker caches first with no revalidation,** so a stale page persists longer than
-   it should even when it is correctly cached. Filed as #32.
+3. **Cached assets are only as current as their last revalidation.** Plain assets are
+   stale-while-revalidate since #32, so a changed file reaches a visitor one view late.
 4. **No penetration test has been run.** For a package with no measurable install base a paid
    engagement is not proportionate, and a timeboxed test against this document is. When one
    happens, its scope and date go here; the absence of a result is not a claim that there is

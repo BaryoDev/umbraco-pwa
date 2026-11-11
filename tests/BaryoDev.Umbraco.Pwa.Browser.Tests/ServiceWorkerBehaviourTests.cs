@@ -151,6 +151,21 @@ public class ServiceWorkerBehaviourTests
     }
 
     [Fact]
+    public async Task A_partial_response_reaches_the_page_and_is_not_cached()
+    {
+        // The defect this covers: a 206 from a media range request counts as ok, Cache Storage
+        // refuses to store it, and a write chained into the response turned that refusal into a
+        // failed request for a file that had loaded fine.
+        var page = await Installed();
+
+        var status = await page.EvaluateAsync<int>("async () => (await fetch('/partial-asset')).status");
+        await Settle(page);
+
+        status.ShouldBe(206);
+        (await CacheKeys(page)).ShouldNotContain("/partial-asset");
+    }
+
+    [Fact]
     public async Task A_no_store_response_is_never_cached_but_an_ordinary_response_is()
     {
         var page = await Installed();
