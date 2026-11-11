@@ -86,6 +86,21 @@ app.MapGet("/cache-control-private", (HttpResponse response) =>
     return Results.Text("private response");
 });
 
+// Returns a new body on every request for the same key, so a test can tell a copy served from the
+// cache apart from one refreshed from the network.
+var changingAssetHits = new System.Collections.Concurrent.ConcurrentDictionary<string, int>();
+app.MapGet("/changing-asset", (string k) =>
+    Results.Text("version " + changingAssetHits.AddOrUpdate(k, 1, (_, n) => n + 1)));
+
+// Answers like a media range request does: 206 with a Content-Range. Cache Storage refuses to store
+// a partial response, so the worker must hand it back without trying to keep it.
+app.MapGet("/partial-asset", (HttpResponse response) =>
+{
+    response.StatusCode = StatusCodes.Status206PartialContent;
+    response.Headers.ContentRange = "bytes 0-6/14";
+    return Results.Text("partial", statusCode: StatusCodes.Status206PartialContent);
+});
+
 // The demo page at the root, not at /demo.html.
 //
 // Every listing that sends people here (the README, the NuGet page, the Marketplace description)

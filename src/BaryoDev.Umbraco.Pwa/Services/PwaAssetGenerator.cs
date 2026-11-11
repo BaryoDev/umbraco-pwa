@@ -181,7 +181,8 @@ self.addEventListener("install", (event) => {
 // The Cache Storage API stores whatever it is handed and enforces no HTTP semantics of its own,
 // so every rule the browser's own cache would apply has to be applied here instead.
 function cacheable(resp) {
-  if (!resp.ok || resp.type !== "basic") return false;
+  // 200 only. A 206 partial response (media range requests) is "ok" but Cache Storage refuses it.
+  if (resp.status !== 200 || resp.type !== "basic") return false;
 
   const directives = (resp.headers.get("Cache-Control") || "").toLowerCase().split(",");
   return !directives.some((d) => d.trim() === "no-store" || d.trim() === "private");
@@ -272,19 +273,27 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(req).then(
-      (cached) =>
-        cached ||
-        fetch(req).then((resp) => {
-          if (storable(resp)) {
-            const copy = resp.clone();
-            caches.open(SHELL).then((c) => c.put(req, copy));
-          }
-          return resp;
-        }),
-    ),
-  );
+  // Plain assets: stale-while-revalidate. A cached copy answers at once and the network refreshes
+  // it in the background, so a changed asset is current by the next request. Cache-first would be
+  // faster, but it is only safe for fingerprinted URLs, and the package cannot know whether a site
+  // fingerprints its assets, so a cached copy is never trusted to stay valid forever.
+  // A conditional request, so an unchanged file costs a 304 rather than a second download, and a
+  // fresh entry in the browser's HTTP cache does not hide a change on the server.
+  const refresh = fetch(req, { cache: "no-cache" }).then((resp) => {
+    if (!storable(resp)) return resp;
+    const copy = resp.clone();
+    // The write is best-effort. A refused put (quota, an unexpected status) must never turn a
+    // response that arrived into a failed request.
+    return caches
+      .open(SHELL)
+      .then((c) => c.put(req, copy))
+      .catch(() => {})
+      .then(() => resp);
+  });
+  // The refresh outlives the response when a cached copy answers, so the worker must not be
+  // stopped before it lands. Offline it fails quietly; the cached copy already answered.
+  event.waitUntil(refresh.catch(() => {}));
+  event.respondWith(caches.match(req).then((cached) => cached || refresh));
 });
 """;
     }
