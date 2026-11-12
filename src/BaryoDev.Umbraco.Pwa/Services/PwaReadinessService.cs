@@ -70,7 +70,7 @@ internal class PwaReadinessService : IPwaReadinessService, IPwaStartupReadinessS
         HttpRequest request,
         CancellationToken ct = default)
     {
-        List<PwaCheck> checks = [CreateHttpsCheck(request)];
+        List<PwaCheck> checks = [CreateHttpsCheck(request), CreateForwardedHeadersCheck(request)];
 
         await AddCommonChecksAsync(checks, ct);
 
@@ -112,6 +112,47 @@ internal class PwaReadinessService : IPwaReadinessService, IPwaStartupReadinessS
                     ? "localhost is treated as a secure origin, so this is fine in development."
                     : "Browsers refuse to register a service worker on an insecure origin. "
                       + "localhost is exempt; a public site is not.",
+        };
+    }
+
+    /// <summary>
+    /// Warns when a proxy says it terminated TLS but the app was never told to believe it.
+    /// </summary>
+    /// <remarks>
+    /// Without UseForwardedHeaders, Request.Scheme is "http" behind a TLS-terminating proxy, and
+    /// OpenIddict, which backs the Umbraco login, refuses every non-HTTPS request with ID2083. The
+    /// public pages look fine, so the backoffice login is the only symptom and it names OpenIddict.
+    ///
+    /// When the middleware does run it consumes X-Forwarded-Proto and sets the scheme, so seeing
+    /// both an http scheme and the header means it did not run, or did not trust the proxy. The
+    /// second case is the one that bites in containers: the proxy is a Docker bridge address, the
+    /// default KnownProxies and KnownNetworks reject it, and the middleware silently does nothing.
+    /// ForwardedHeadersOptions.KnownNetworks is obsolete on net10.0 and renamed KnownIPNetworks,
+    /// a name that does not exist on net9.0, so a fix has to be conditional on the target framework.
+    ///
+    /// Advisory, because the dashboard is reached through the backoffice, which is what breaks.
+    /// </remarks>
+    private static PwaCheck CreateForwardedHeadersCheck(HttpRequest request)
+    {
+        var behindTlsProxy = !request.IsHttps
+            && request.Headers["X-Forwarded-Proto"]
+                .SelectMany(v => (v ?? "").Split(','))
+                .Any(v => v.Trim().Equals("https", StringComparison.OrdinalIgnoreCase));
+
+        return new PwaCheck
+        {
+            Name = "Forwarded headers",
+            Passed = !behindTlsProxy,
+            Advisory = true,
+            Detail = behindTlsProxy
+                ? "This request arrived over HTTP but carries X-Forwarded-Proto: https, so a proxy is "
+                  + "terminating TLS and the app is not configured to trust it. The backoffice login "
+                  + "will fail with an OpenIddict ID2083 error, and any absolute URL the site generates "
+                  + "will use the wrong scheme. Add UseForwardedHeaders before the Umbraco middleware. "
+                  + "If it is already there, the proxy address is probably not in KnownProxies or "
+                  + "KnownNetworks (KnownIPNetworks on net10.0); in a container it is a Docker bridge "
+                  + "address, and the defaults reject it."
+                : "No sign of a proxy terminating TLS without the app being told.",
         };
     }
 

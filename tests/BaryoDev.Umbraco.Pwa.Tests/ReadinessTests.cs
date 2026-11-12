@@ -106,6 +106,78 @@ public class ReadinessTests
         return readiness.Checks.Single(c => c.Name == "Imported worker scripts are valid");
     }
 
+    private async Task<PwaCheck> ForwardedCheck(string scheme, string host, string? forwardedProto)
+    {
+        var options = new PwaOptions
+        {
+            Manifest = new PwaManifestOptions { Name = "Forwarded check", StartUrl = "/demo.html" },
+        };
+
+        var service = new PwaReadinessService(
+            new StaticOptionsMonitor(options),
+            new StubHttpClientFactory(new StubHttpMessageHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.NotFound))),
+            _site.Resolve<IWebHostEnvironment>(),
+            _site.Resolve<IDocumentUrlService>(),
+            new StubPublicAccess());
+
+        var context = new DefaultHttpContext();
+        context.Request.Scheme = scheme;
+        context.Request.Host = new HostString(host);
+        if (forwardedProto is not null) context.Request.Headers["X-Forwarded-Proto"] = forwardedProto;
+
+        var readiness = await service.CheckAsync(context.Request);
+        return readiness.Checks.Single(c => c.Name == "Forwarded headers");
+    }
+
+    [Fact]
+    public async Task Plain_https_is_not_warned_about_forwarded_headers()
+    {
+        var check = await ForwardedCheck("https", "example.test", null);
+
+        check.Passed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Https_with_the_forwarded_header_still_present_is_not_warned()
+    {
+        // Forwarded headers applied but a second proxy hop left the header behind.
+        var check = await ForwardedCheck("https", "example.test", "https");
+
+        check.Passed.ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData("https")]
+    [InlineData("HTTPS")]
+    [InlineData("https, http")]
+    public async Task Http_with_a_forwarded_https_header_is_warned_and_names_the_fix(string header)
+    {
+        var check = await ForwardedCheck("http", "example.test", header);
+
+        check.Passed.ShouldBeFalse();
+        check.Advisory.ShouldBeTrue("the backoffice is what breaks, so this cannot block");
+        check.Detail.ShouldContain("UseForwardedHeaders");
+        check.Detail.ShouldContain("ID2083");
+        check.Detail.ShouldContain("KnownProxies");
+    }
+
+    [Fact]
+    public async Task Localhost_over_http_with_no_forwarded_header_is_not_warned()
+    {
+        var check = await ForwardedCheck("http", "localhost:5000", null);
+
+        check.Passed.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Http_with_a_forwarded_http_header_is_not_warned()
+    {
+        // A proxy in front that is not terminating TLS. Plain HTTP, which the HTTPS check covers.
+        var check = await ForwardedCheck("http", "example.test", "http");
+
+        check.Passed.ShouldBeTrue();
+    }
+
     [Fact]
     public async Task Dropped_import_scripts_are_named_in_an_advisory_check()
     {

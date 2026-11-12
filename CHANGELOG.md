@@ -12,6 +12,13 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+### Added
+
+- **The readiness dashboard warns when a proxy terminates TLS and the app is not told.** An advisory
+  "Forwarded headers" check fires when a request arrives over HTTP with `X-Forwarded-Proto: https`.
+  That is the case where the backoffice login fails with OpenIddict `ID2083`. It points at
+  `UseForwardedHeaders` and at `KnownProxies`. No configuration or API change.
+
 ### Changed
 
 - **Plain assets are stale-while-revalidate.** A cached script, style or image still answers at
