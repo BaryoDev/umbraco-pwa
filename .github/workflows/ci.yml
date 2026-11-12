@@ -130,9 +130,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # The floor of each range the csproj advertises, next to the newest tested in that major.
+          - umbraco: "16.0.0"
+            framework: net9.0
+            note: "lowest supported 16.x"
           - umbraco: "16.5.1"
             framework: net9.0
             note: "standard-term support"
+          - umbraco: "17.0.0"
+            framework: net10.0
+            note: "lowest supported 17.x"
           - umbraco: "17.6.1"
             framework: net10.0
             note: "current LTS"

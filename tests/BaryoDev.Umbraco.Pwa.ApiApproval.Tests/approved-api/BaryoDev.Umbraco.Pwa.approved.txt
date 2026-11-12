@@ -165,6 +165,7 @@ namespace BaryoDev.Umbraco.Pwa.Services
         string Client(string pathBase);
         string Manifest();
         string ServiceWorker();
+        string ServiceWorker(string pathBase);
     }
     public interface IPwaInstallService
     {

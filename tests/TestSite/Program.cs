@@ -148,6 +148,11 @@ app.MapGet("/cross-origin-target", (HttpResponse response) =>
     return Results.Text("cross-origin target");
 });
 
+// The worker as generated for a site mounted under a path base, so a browser test can run it
+// without mounting the whole site under a prefix.
+app.MapGet("/path-base-sw.js", (IPwaAssetGenerator generator, string? b) =>
+    Results.Text(generator.ServiceWorker(b ?? string.Empty), "text/javascript"));
+
 app.MapGet("/redirecting-sw.js", (IPwaAssetGenerator generator) =>
     Results.Text(
         WorkerWithFallback(generator, "/redirecting-fallback"),

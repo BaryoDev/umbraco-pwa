@@ -12,7 +12,32 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+### Fixed
+
+- **A visitor with blocked storage no longer adds a row per page view.** The client minted a new
+  ephemeral device id on every call when `localStorage` threw. It now keeps one id for the life of
+  the page, and in `sessionStorage` when that works, so a page session reports one device.
+- **The service worker now honours the path base.** Under `/app`, the backoffice at `/app/umbraco/`
+  was not skipped, `/app/api/` was not network-first, and the install-time fetch of the navigation
+  fallback hit the domain root. The worker is generated with the same path base the client gets.
+  Configured `SkipPaths`, `ApiPrefix`, `NavigationFallback` and `ImportScripts` stay relative to
+  the site and are prefixed by the worker.
+- **`live-demo.yml` passes `base_url` through the environment** instead of expanding it into the
+  shell source.
+- **The publish job requires a green `ci.yml` run on the tagged commit.** It used to test Umbraco
+  18.1.0 only and did not depend on CI. CI now also runs the lowest version each advertised range
+  claims, 16.0.0 and 17.0.0.
+
 ### Added
+
+- **A dropped install report is logged.** When the per-address limit drops a report, one warning
+  per minute says so, with no address in it. Behind a proxy without forwarded headers every
+  visitor shares one budget, and nothing said so.
+- `IPwaAssetGenerator.ServiceWorker(string pathBase)`, a default interface method like
+  `Client(string pathBase)`.
+- The README says that one manifest and one options object serve every hostname, install rows have
+  no host column, and multi-site is not supported. It also lists exactly which Umbraco versions CI
+  tests.
 
 - **The readiness dashboard warns when a proxy terminates TLS and the app is not told.** An advisory
   "Forwarded headers" check fires when a request arrives over HTTP with `X-Forwarded-Proto: https`.

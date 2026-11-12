@@ -2,6 +2,7 @@ using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
 namespace BaryoDev.Umbraco.Pwa.Controllers;
@@ -23,10 +24,17 @@ internal sealed class PwaReportRateLimitFilter : IAsyncActionFilter, IDisposable
 {
     private readonly PartitionedRateLimiter<HttpContext> _limiter;
     private readonly IOptionsMonitor<PwaOptions> _options;
+    private readonly ILogger<PwaReportRateLimitFilter> _logger;
 
-    public PwaReportRateLimitFilter(IOptionsMonitor<PwaOptions> options)
+    // Ticks of the last warning, so a flood logs once per window instead of once per request.
+    private long _lastWarnedAt = long.MinValue;
+
+    private static readonly long WindowTicks = (long)(TimeSpan.FromMinutes(1).TotalSeconds * System.Diagnostics.Stopwatch.Frequency);
+
+    public PwaReportRateLimitFilter(IOptionsMonitor<PwaOptions> options, ILogger<PwaReportRateLimitFilter> logger)
     {
         _options = options;
+        _logger = logger;
 
         _limiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
         {
@@ -76,10 +84,28 @@ internal sealed class PwaReportRateLimitFilter : IAsyncActionFilter, IDisposable
             // would also tell them exactly where the limit is and when it resets. Dropping the
             // report is correct. Saying so is not.
             context.Result = new AcceptedResult();
+            WarnOncePerWindow();
             return;
         }
 
         await next();
+    }
+
+    // Operators see the drop here, not the caller. Nothing identifying goes in the message: the
+    // address partitions the limiter and is never logged.
+    private void WarnOncePerWindow()
+    {
+        var now = System.Diagnostics.Stopwatch.GetTimestamp();
+        var last = Interlocked.Read(ref _lastWarnedAt);
+
+        if (last != long.MinValue && now - last < WindowTicks) return;
+        if (Interlocked.CompareExchange(ref _lastWarnedAt, now, last) != last) return;
+
+        _logger.LogWarning(
+            "PWA install reports are being dropped by the per-address limit of {Limit} a minute. "
+            + "Behind a reverse proxy or CDN without forwarded headers every visitor shares one address, "
+            + "so ordinary traffic can hit it. Configure forwarded headers or raise MaxReportsPerMinute.",
+            _options.CurrentValue.MaxReportsPerMinute);
     }
 
     public void Dispose() => _limiter.Dispose();
