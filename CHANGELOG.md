@@ -14,9 +14,10 @@ each covers and which test gates it.
 
 ### Fixed
 
-- **A visitor with blocked storage no longer adds a row per page view.** The client minted a new
-  ephemeral device id on every call when `localStorage` threw. It now keeps one id for the life of
-  the page, and in `sessionStorage` when that works, so a page session reports one device.
+- **A visitor with blocked storage adds fewer rows.** The client minted a new ephemeral device id on
+  every call when `localStorage` threw. It now keeps one id per page, and per tab when
+  `sessionStorage` works. When both are blocked, a site with several pages per visit still adds one
+  row per page view, because each page load starts with no id. That case is not fixed here.
 - **The service worker now honours the path base.** Under `/app`, the backoffice at `/app/umbraco/`
   was not skipped, `/app/api/` was not network-first, and the install-time fetch of the navigation
   fallback hit the domain root. The worker is generated with the same path base the client gets.

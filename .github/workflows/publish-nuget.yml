@@ -66,9 +66,9 @@ jobs:
           echo "Version from the csproj: $VERSION"
 
       # The release path tests one Umbraco version, 18. The matrix across 16, 17 and 18 lives in
-      # ci.yml, so a tag is only as proven as the CI run on its commit. Require that run to have
-      # finished green rather than hoping it had. The latest finished run counts, so a failed run
-      # that was rerun green passes and a green run followed by a red one does not.
+      # ci.yml, so a tag is only as proven as the CI run on its commit. The newest ci.yml run for the
+      # commit must be completed and green. An older green run does not count if a newer one is
+      # still running or failed.
       - name: Require a green CI run on this commit
         if: startsWith(github.ref, 'refs/tags/v')
         env:
@@ -78,10 +78,10 @@ jobs:
         run: |
           RESULT=$(gh run list --repo "$REPO" --workflow ci.yml --commit "$SHA" --limit 50 \
             --json status,conclusion,createdAt \
-            --jq 'map(select(.status == "completed")) | sort_by(.createdAt) | last | .conclusion // "none"')
-          echo "Latest finished ci.yml run for $SHA: $RESULT"
+            --jq 'sort_by(.createdAt) | last | if . == null then "none" elif .status != "completed" then .status else .conclusion end')
+          echo "Newest ci.yml run for $SHA: $RESULT"
           test "$RESULT" = "success" || {
-            echo "::error::ci.yml has no green finished run for $SHA. Wait for CI, or fix it, before tagging."
+            echo "::error::The newest ci.yml run for $SHA is not green ($RESULT). Wait for CI, or fix it, before tagging."
             exit 1
           }
 
