@@ -48,7 +48,11 @@ public class PwaAssetsController : ControllerBase
         // A cached service worker is how a site gets stuck on a broken build: the browser keeps
         // serving the old worker, which keeps serving the old shell.
         Response.Headers.CacheControl = "no-cache, no-store, must-revalidate";
-        return Content(_generator.ServiceWorker(), "text/javascript", Encoding.UTF8);
+
+        // The same path base the client script is given, so the worker's paths match the URLs it sees.
+        return Content(_generator.ServiceWorker(Request.PathBase.Value ?? string.Empty),
+            "text/javascript",
+            Encoding.UTF8);
     }
 
     [HttpGet("/baryodev-pwa.js")]

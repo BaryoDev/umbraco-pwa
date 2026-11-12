@@ -87,6 +87,42 @@ public class ClientBehaviourTests
         again.GetProperty("deviceId").GetString().ShouldBe(deviceId);
     }
 
+    private const string BlockLocalStorage =
+        "Object.defineProperty(window, 'localStorage', { get() { throw new Error('blocked'); } });";
+
+    private const string BlockSessionStorage =
+        "Object.defineProperty(window, 'sessionStorage', { get() { throw new Error('blocked'); } });";
+
+    [Fact]
+    public async Task One_page_with_all_storage_blocked_reports_one_device()
+    {
+        // The defect: every call minted a new ephemeral id, so each report stored a new row.
+        var page = await NewPageAsync(Android);
+        await page.Context.AddInitScriptAsync(BlockLocalStorage + BlockSessionStorage);
+
+        var (first, _) = await ReportFrom(page, () => page.GotoAsync(LiveSiteFixture.EntryPage));
+        var (second, _) = await ReportFrom(
+            page, () => page.EvaluateAsync("() => window.dispatchEvent(new Event('appinstalled'))"));
+
+        var id = first.GetProperty("deviceId").GetString();
+        id.ShouldStartWith("ephemeral-");
+        second.GetProperty("deviceId").GetString().ShouldBe(id);
+    }
+
+    [Fact]
+    public async Task Page_views_in_one_session_with_localStorage_blocked_report_one_device()
+    {
+        var page = await NewPageAsync(Android);
+        await page.Context.AddInitScriptAsync(BlockLocalStorage);
+
+        var (first, _) = await ReportFrom(page, () => page.GotoAsync(LiveSiteFixture.EntryPage));
+        var (again, _) = await ReportFrom(page, () => page.ReloadAsync());
+
+        var id = first.GetProperty("deviceId").GetString();
+        id.ShouldStartWith("ephemeral-");
+        again.GetProperty("deviceId").GetString().ShouldBe(id);
+    }
+
     [Fact]
     public async Task An_installed_app_reports_itself_installed_and_is_not_asked_to_install()
     {

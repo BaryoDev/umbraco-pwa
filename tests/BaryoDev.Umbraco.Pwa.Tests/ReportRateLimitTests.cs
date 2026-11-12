@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Mvc.Abstractions;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
 
@@ -21,8 +23,22 @@ namespace BaryoDev.Umbraco.Pwa.Tests;
 /// </remarks>
 public class ReportRateLimitTests
 {
-    private static PwaReportRateLimitFilter Filter(int perMinute) =>
-        new(new StaticOptionsMonitor(new PwaOptions { MaxReportsPerMinute = perMinute }));
+    private static PwaReportRateLimitFilter Filter(int perMinute, ILogger<PwaReportRateLimitFilter>? logger = null) =>
+        new(
+            new StaticOptionsMonitor(new PwaOptions { MaxReportsPerMinute = perMinute }),
+            logger ?? NullLogger<PwaReportRateLimitFilter>.Instance);
+
+    private sealed class CapturingLogger : ILogger<PwaReportRateLimitFilter>
+    {
+        public List<(LogLevel Level, string Message)> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter) => Entries.Add((logLevel, formatter(state, exception)));
+    }
 
     private static ActionExecutingContext Context(string? callerIp)
     {
@@ -62,6 +78,22 @@ public class ReportRateLimitTests
         for (var i = 0; i < 5; i++) outcomes.Add((await Run(filter, "203.0.113.7")).Reached);
 
         outcomes.ShouldBe([true, true, true, false, false]);
+    }
+
+    [Fact]
+    public async Task A_dropped_report_is_logged_once_and_carries_no_address()
+    {
+        var logger = new CapturingLogger();
+        using var filter = Filter(perMinute: 1, logger);
+
+        await Run(filter, "203.0.113.20");
+        logger.Entries.ShouldBeEmpty();
+
+        for (var i = 0; i < 5; i++) await Run(filter, "203.0.113.20");
+
+        var entry = logger.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Warning);
+        entry.Message.ShouldNotContain("203.0.113.20");
     }
 
     [Fact]

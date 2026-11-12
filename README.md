@@ -138,6 +138,13 @@ is best-effort telemetry, so a client should never retry over it, and an answer 
 the report's content would let an anonymous caller probe which device ids exist. Malformed
 requests are rejected on shape: `400`, `415` or `413`.
 
+## One site per install
+
+The package serves one manifest from one options object to every hostname that reaches the
+site, and install rows have no host column. An Umbraco with two sites on two hostnames shows one
+manifest, one name and one icon set on both, and records every device in one table and one
+dashboard. Multi-site is not supported.
+
 ## Using it with a decoupled front end
 
 The report contract is identical to
@@ -161,15 +168,21 @@ The dashboard does not care which client sent the report.
 ## Verified, not assumed
 
 The integration tests run against a real Umbraco booting on SQLite, covering the migration, the
-endpoints, the generated assets and the dashboard registration. CI runs the whole suite against
-**every supported major**, because a version range in a csproj is a claim and this is the evidence
-for it:
+endpoints, the generated assets and the dashboard registration. CI runs that suite against these
+Umbraco versions, because a version range in a csproj is a claim and this is the evidence for it:
 
-| Umbraco | Runtime | Support | Tests |
+| Umbraco | Runtime | Support | Versions CI tests |
 | --- | --- | --- | --- |
-| 16 | .NET 9 | standard-term | 57 / 57 |
-| 17 | .NET 10 | **current LTS**, into late 2027 | 57 / 57 |
-| 18 | .NET 10 | latest | 57 / 57 |
+| 16 | .NET 9 | standard-term | 16.0.0, 16.5.1 |
+| 17 | .NET 10 | **current LTS**, into late 2027 | 17.0.0, 17.6.1 |
+| 18 | .NET 10 | latest | 18.1.0 |
+
+Each major is tested at the lowest version the package claims and at the newest one checked. The
+versions in between are not run. The browser suite runs once, against 18.1.0, because the generated
+JavaScript does not depend on the Umbraco version.
+
+A release is published only when `ci.yml` has finished green on the tagged commit, so the matrix
+above is what gates it. The publish job itself repeats the tests on 18.1.0 only.
 
 Beyond that, the package was deployed to a live Umbraco 18 behind nginx and driven with a real
 browser, which confirmed end to end:

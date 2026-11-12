@@ -56,4 +56,6 @@ jobs:
       # skip the advertised check, which is the one this workflow exists for: the demo served
       # Umbraco's installer screen at that exact URL through two releases.
       - name: Check the live demo
-        run: sh scripts/check-live-demo.sh "${{ inputs.base_url }}"
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+        run: sh scripts/check-live-demo.sh "$BASE_URL"
