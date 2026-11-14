@@ -12,6 +12,8 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-14
+
 ### Changed
 
 - **`RetentionDays` still defaults to `0` (keep forever). 400 is now the recommended value.** Set
@@ -22,7 +24,8 @@ each covers and which test gates it.
   get a fresh budget per address.
 - **The service worker bounds its runtime caches.** Each of the shell and API caches keeps at most
   200 entries and evicts the oldest first. The offline fallback is never evicted. Cache names are
-  unchanged, so existing caches stay readable. Runtime responses with `Vary: Cookie` are no longer
+  unchanged, so existing caches stay readable. An existing cache over 200 entries is trimmed to 200
+  on its first write after the worker updates. Runtime responses with `Vary: Cookie` are no longer
   cached. The install-time fallback precache is unchanged. A service worker cannot read
   `Set-Cookie`, so a site that sets per-visitor cookies on anonymous pages should send
   `Cache-Control: private` on them, or those pages may be cached for offline.
@@ -412,7 +415,8 @@ First release.
   offer installation.
 - Support for Umbraco 16, 17 and 18, with CI running the suite against each.
 
-[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.4...v0.6.0
 [0.5.4]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/BaryoDev/umbraco-pwa/compare/v0.5.2...v0.5.3

@@ -21,7 +21,7 @@
 
   <PropertyGroup>
     <PackageId>BaryoDev.Umbraco.Pwa</PackageId>
-    <Version>0.6.0</Version>
+    <Version>0.7.0</Version>
     <Authors>BaryoDev</Authors>
     <Title>PWA for Umbraco</Title>
     <Description>Turn an Umbraco site into an installable, offline-capable app, and see who installed it from the backoffice. Install prompt for Android and iOS, a service worker that keeps the site working offline, and install tracking that stays in your own database rather than a third-party dashboard.</Description>
@@ -31,7 +31,7 @@
     <!-- NuGet shows this on the package page, and without it the listing has no changelog at all.
          The Umbraco Marketplace schema has no equivalent field, so this is the only place a
          release is described to someone deciding whether to upgrade. Update it every release. -->
-    <PackageReleaseNotes>The install prompt now waits for an engaged visitor. It shows from the second visit, then after the visitor scrolls 50% of a page or spends 30 seconds on it. Three new options change this: InstallPrompt:MinVisits, InstallPrompt:MinScrollPercent and InstallPrompt:MinSecondsOnPage. Set them to 0 for the old behaviour of showing at once. Also new is ServiceWorker:ImportScripts, a list of root-relative script paths the generated worker loads with importScripts, for push or sync handlers. No other API changes. Full changelog: https://github.com/BaryoDev/umbraco-pwa/blob/main/CHANGELOG.md</PackageReleaseNotes>
+    <PackageReleaseNotes>The report rate limit now groups IPv6 callers by /64. The service worker keeps at most 200 entries in each of its shell and API caches, an existing cache over 200 is trimmed on its first write, and it no longer caches runtime responses with Vary: Cookie. The client sends no report when localStorage and sessionStorage are both blocked. The worker now honours the path base. Plain assets refresh in the background. RetentionDays still defaults to 0, and 400 is now the recommended value. Full changelog: https://github.com/BaryoDev/umbraco-pwa/blob/main/CHANGELOG.md</PackageReleaseNotes>
     <PackageIcon>icon.png</PackageIcon>
     <PackageProjectUrl>https://github.com/BaryoDev/umbraco-pwa</PackageProjectUrl>
     <RepositoryUrl>https://github.com/BaryoDev/umbraco-pwa</RepositoryUrl>
