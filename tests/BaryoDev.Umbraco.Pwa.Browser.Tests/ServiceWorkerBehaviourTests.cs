@@ -46,6 +46,21 @@ public class ServiceWorkerBehaviourTests
     }
 
     [Fact]
+    public async Task A_fallback_page_sent_with_Vary_Cookie_is_still_precached()
+    {
+        // The test site serves the fallback with Vary: Cookie. The Vary rule is for runtime
+        // writes only, so the install-time precache must keep it or offline navigation breaks.
+        var page = await Installed();
+
+        var vary = await page.EvaluateAsync<string>(
+            $"async () => (await fetch('{LiveSiteFixture.Fallback}')).headers.get('Vary')");
+
+        vary.ShouldNotBeNull();
+        vary.ToLowerInvariant().ShouldContain("cookie");
+        (await CacheKeys(page)).ShouldContain(LiveSiteFixture.Fallback);
+    }
+
+    [Fact]
     public async Task A_redirecting_fallback_is_cached_as_a_replayable_response()
     {
         var page = await Installed("/redirecting-sw.js");
@@ -181,6 +196,48 @@ public class ServiceWorkerBehaviourTests
         var keys = await CacheKeys(page);
         keys.ShouldNotContain("/cache-control-no-store");
         keys.ShouldContain("/icon-192.png");
+    }
+
+    [Fact]
+    public async Task A_response_that_varies_on_cookie_is_never_cached_but_an_ordinary_response_is()
+    {
+        var page = await Installed();
+
+        var varyStatus = await page.EvaluateAsync<int>("async () => (await fetch('/vary-cookie')).status");
+        var ordinaryStatus = await page.EvaluateAsync<int>("async () => (await fetch('/icon-192.png')).status");
+        await Settle(page);
+
+        varyStatus.ShouldBe(200);
+        ordinaryStatus.ShouldBe(200);
+        var keys = await CacheKeys(page);
+        keys.ShouldNotContain("/vary-cookie");
+        keys.ShouldContain("/icon-192.png");
+    }
+
+    [Fact]
+    public async Task The_runtime_cache_is_bounded_and_evicts_the_oldest_but_keeps_the_fallback()
+    {
+        var page = await Installed();
+        var run = Guid.NewGuid().ToString("N");
+
+        // 260 distinct URLs, sequentially so the write order is the request order.
+        await page.EvaluateAsync($@"async () => {{
+            for (let i = 0; i < 260; i++) {{
+                await (await fetch('/changing-asset?k={run}-' + i)).text();
+                await new Promise((r) => setTimeout(r, 15));
+            }}
+        }}");
+        await page.WaitForTimeoutAsync(3000);
+
+        var urls = await page.EvaluateAsync<string[]>($@"async () => {{
+            const c = await caches.open('{LiveSiteFixture.ShellCache}');
+            return (await c.keys()).map((r) => new URL(r.url).pathname + new URL(r.url).search);
+        }}");
+
+        urls.Length.ShouldBeLessThanOrEqualTo(200);
+        urls.ShouldContain(LiveSiteFixture.Fallback);
+        urls.ShouldNotContain($"/changing-asset?k={run}-0");
+        urls.ShouldContain($"/changing-asset?k={run}-259");
     }
 
     [Fact]

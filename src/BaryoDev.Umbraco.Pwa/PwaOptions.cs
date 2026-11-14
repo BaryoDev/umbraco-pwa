@@ -23,8 +23,12 @@ public class PwaOptions
     public bool TrackInstalledOnly { get; set; }
 
     /// <summary>
-    /// Delete rows not seen for this many days. Zero keeps everything forever.
+    /// Delete rows not seen for this many days. Zero, the default, keeps everything forever.
     /// </summary>
+    /// <remarks>
+    /// Recommended: <c>400</c>. The default stays zero so an upgrade never deletes stored rows
+    /// without the site asking for it.
+    /// </remarks>
     public int RetentionDays { get; set; }
 
     /// <summary>
@@ -45,8 +49,8 @@ public class PwaOptions
     /// bound in front of it.
     ///
     /// Deliberately generous. Genuine traffic is one report per launch per device, but the
-    /// partition is the caller's address, and every visitor behind one corporate proxy or CDN
-    /// egress shares it. A tight limit would drop real reports from exactly the kind of site most
+    /// partition is the caller's address (the /64 prefix for IPv6, the full address for IPv4), and
+    /// every visitor behind one corporate proxy or CDN egress shares it. A tight limit would drop real reports from exactly the kind of site most
     /// worth counting. If your site sits behind a proxy, configure forwarded headers so this sees
     /// the visitor rather than the proxy, or set this to zero and rely on retention.
     ///
@@ -67,6 +71,10 @@ public class PwaOptions
     /// own, so without this the worker sees nothing telling it to decline.
     ///
     /// A response that already carries a <c>Cache-Control</c> header is never overridden.
+    ///
+    /// A service worker cannot read <c>Set-Cookie</c>, so a response that sets a per-visitor cookie
+    /// on an anonymous page is not detected here. Send <c>Cache-Control: private</c> on those pages
+    /// yourself, or they may be cached for offline use.
     ///
     /// Turn it off only if you are setting the header yourself, or you have decided that pages
     /// behind your sign-in are not sensitive on a shared device.

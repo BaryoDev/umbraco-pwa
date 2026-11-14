@@ -128,6 +128,54 @@ public class ReportRateLimitTests
     }
 
     [Fact]
+    public async Task Addresses_in_one_ipv6_64_share_a_budget()
+    {
+        // One subscriber is handed a whole /64 and can use any address in it. Per-address keys
+        // would give them a fresh budget for each.
+        using var filter = Filter(perMinute: 2);
+
+        (await Run(filter, "2001:db8:1:2::1")).Reached.ShouldBeTrue();
+        (await Run(filter, "2001:db8:1:2:aaaa:bbbb:cccc:dddd")).Reached.ShouldBeTrue();
+        (await Run(filter, "2001:db8:1:2:ffff::9")).Reached.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_different_ipv6_64_has_its_own_budget()
+    {
+        using var filter = Filter(perMinute: 1);
+
+        (await Run(filter, "2001:db8:1:2::1")).Reached.ShouldBeTrue();
+        (await Run(filter, "2001:db8:1:2::2")).Reached.ShouldBeFalse();
+
+        (await Run(filter, "2001:db8:1:3::1")).Reached.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task An_ipv4_mapped_ipv6_address_counts_as_the_ipv4_address()
+    {
+        using var filter = Filter(perMinute: 2);
+
+        (await Run(filter, "203.0.113.50")).Reached.ShouldBeTrue();
+        (await Run(filter, "::ffff:203.0.113.50")).Reached.ShouldBeTrue();
+        (await Run(filter, "203.0.113.50")).Reached.ShouldBeFalse();
+
+        // A different IPv4 address that happens to be mapped is not swept into the same /64
+        // bucket. Every mapped address shares the ::ffff:0:0/96 prefix, so a /64 key would put
+        // all of them in one budget.
+        (await Run(filter, "::ffff:203.0.113.51")).Reached.ShouldBeTrue();
+    }
+
+    [Fact]
+    public async Task Ipv4_callers_are_still_keyed_by_the_full_address()
+    {
+        using var filter = Filter(perMinute: 1);
+
+        (await Run(filter, "203.0.113.60")).Reached.ShouldBeTrue();
+        (await Run(filter, "203.0.113.61")).Reached.ShouldBeTrue();
+        (await Run(filter, "203.0.113.60")).Reached.ShouldBeFalse();
+    }
+
+    [Fact]
     public async Task Zero_turns_the_limit_off()
     {
         using var filter = Filter(perMinute: 0);

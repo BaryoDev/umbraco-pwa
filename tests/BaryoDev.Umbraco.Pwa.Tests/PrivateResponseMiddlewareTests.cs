@@ -31,7 +31,8 @@ public class PrivateResponseMiddlewareTests
         string path = "/members/dashboard",
         string? existingHeader = null,
         bool optionOn = true,
-        ClaimsPrincipal? user = null)
+        ClaimsPrincipal? user = null,
+        bool setCookie = false)
     {
         var response = new FiringResponse();
         var context = new DefaultHttpContext();
@@ -45,6 +46,11 @@ public class PrivateResponseMiddlewareTests
         else if (signedIn)
         {
             context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Name, "a-member")], "TestScheme"));
+        }
+
+        if (setCookie)
+        {
+            context.Response.Headers.SetCookie = "session=abc; path=/; httponly";
         }
 
         if (existingHeader is not null)
@@ -92,6 +98,14 @@ public class PrivateResponseMiddlewareTests
     public async Task A_header_the_site_set_itself_is_never_overridden(string existing)
     {
         (await CacheControlAfter(signedIn: true, existingHeader: existing)).ShouldBe(existing);
+    }
+
+    [Fact]
+    public async Task A_cookie_setting_anonymous_response_is_left_alone()
+    {
+        // Pins the documented limit: the middleware does not guess from Set-Cookie. Sites send
+        // Cache-Control: private themselves.
+        (await CacheControlAfter(signedIn: false, setCookie: true)).ShouldBeNullOrEmpty();
     }
 
     [Fact]

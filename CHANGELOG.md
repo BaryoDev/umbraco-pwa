@@ -12,12 +12,31 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+### Changed
+
+- **`RetentionDays` still defaults to `0` (keep forever). 400 is now the recommended value.** Set
+  `BaryoDev:Pwa:RetentionDays` to `400` to delete rows not seen for 400 days. Nothing is deleted
+  unless you set it.
+- **The report rate limit partitions IPv6 callers by their /64 prefix.** IPv4 callers still use the
+  full address, and an IPv4-mapped IPv6 address counts as IPv4. One IPv6 subscriber can no longer
+  get a fresh budget per address.
+- **The service worker bounds its runtime caches.** Each of the shell and API caches keeps at most
+  200 entries and evicts the oldest first. The offline fallback is never evicted. Cache names are
+  unchanged, so existing caches stay readable. Runtime responses with `Vary: Cookie` are no longer
+  cached. The install-time fallback precache is unchanged. A service worker cannot read
+  `Set-Cookie`, so a site that sets per-visitor cookies on anonymous pages should send
+  `Cache-Control: private` on them, or those pages may be cached for offline.
+- **The client sends no report when both `localStorage` and `sessionStorage` are blocked.** It used
+  to mint a new id per page load and add a row per page view.
+- **Docs call `launchCount` a count of page loads.** It always counted reported page loads, not
+  launches. The stored field, the column and the JSON name are unchanged.
+
 ### Fixed
 
 - **A visitor with blocked storage adds fewer rows.** The client minted a new ephemeral device id on
   every call when `localStorage` threw. It now keeps one id per page, and per tab when
   `sessionStorage` works. When both are blocked, a site with several pages per visit still adds one
-  row per page view, because each page load starts with no id. That case is not fixed here.
+  row per page view, because each page load starts with no id. The client entry under Changed covers that case.
 - **The service worker now honours the path base.** Under `/app`, the backoffice at `/app/umbraco/`
   was not skipped, `/app/api/` was not network-first, and the install-time fetch of the navigation
   fallback hit the domain root. The worker is generated with the same path base the client gets.

@@ -329,15 +329,24 @@ public class GeneratedAssetTests
         var worker = Generator().ServiceWorker();
         var lines = worker.Split('\n');
 
+        // Runtime writes go through putBounded (the cache cap), so each call site is a write, and
+        // the precache still calls c.put directly. The helper's own c.put is the one raw write
+        // inside putBounded, asserted below so no other raw write can hide.
         var writes = lines
             .Select((line, index) => (line, index))
-            .Where(x => x.line.Contains("c.put("))
+            .Where(x => (x.line.Contains("putBounded(") && !x.line.Contains("function putBounded"))
+                || x.line.Contains("c.put(NAV_FALLBACK"))
             .ToList();
 
         // Pinned, so the test cannot pass by finding nothing to check. Three fetch branches
         // and the precache. Counting only the branches is how the precache slipped past this
         // test on the change that introduced it.
         writes.Count.ShouldBe(4);
+
+        // Every other raw write is the helper's own, and the helper is only ever handed a
+        // response by the guarded call sites counted above.
+        lines.Count(l => l.Contains("c.put(")).ShouldBe(2);
+        lines.Count(l => l.Contains("c.put(req, resp)")).ShouldBe(1);
 
         // addAll stores whatever it receives, so it cannot be guarded. The call form, not the
         // word, because the generator explains in a comment why it does not use it.
@@ -354,8 +363,11 @@ public class GeneratedAssetTests
                     "\n",
                     lines.Skip(from).Take(x.index - from + 1));
 
-                return !span.Contains("cacheable(resp)")
-                    && !span.Contains("storable(resp)");
+                // The call form inside an if, so the helper definitions between call sites
+                // (function cacheable(resp), function storable(resp)) cannot satisfy it.
+                return !span.Contains("if (storable(resp))")
+                    && !span.Contains("if (!storable(resp))")
+                    && !span.Contains("if (!cacheable(resp))");
             })
             .Select(x => x.index + 1)
             .ToList();

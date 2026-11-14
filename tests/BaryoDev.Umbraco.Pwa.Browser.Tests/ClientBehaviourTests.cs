@@ -94,19 +94,38 @@ public class ClientBehaviourTests
         "Object.defineProperty(window, 'sessionStorage', { get() { throw new Error('blocked'); } });";
 
     [Fact]
-    public async Task One_page_with_all_storage_blocked_reports_one_device()
+    public async Task With_all_storage_blocked_nothing_is_reported()
     {
-        // The defect: every call minted a new ephemeral id, so each report stored a new row.
+        // With no storage there is no stable id, and a new one per page load stored a new row per
+        // page view. The client now sends nothing.
         var page = await NewPageAsync(Android);
         await page.Context.AddInitScriptAsync(BlockLocalStorage + BlockSessionStorage);
 
-        var (first, _) = await ReportFrom(page, () => page.GotoAsync(LiveSiteFixture.EntryPage));
-        var (second, _) = await ReportFrom(
-            page, () => page.EvaluateAsync("() => window.dispatchEvent(new Event('appinstalled'))"));
+        var reports = new List<string>();
+        page.Request += (_, r) =>
+        {
+            if (r.Method == "POST" && new Uri(r.Url).AbsolutePath == Report) reports.Add(r.Url);
+        };
 
-        var id = first.GetProperty("deviceId").GetString();
-        id.ShouldStartWith("ephemeral-");
-        second.GetProperty("deviceId").GetString().ShouldBe(id);
+        await page.GotoAsync(LiveSiteFixture.EntryPage);
+        await page.EvaluateAsync("() => window.dispatchEvent(new Event('appinstalled'))");
+        await page.ReloadAsync();
+        await page.WaitForTimeoutAsync(1500);
+
+        reports.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task With_only_sessionStorage_blocked_the_client_still_reports_a_durable_id()
+    {
+        // The control for the test above: skipping must happen only when nothing can hold an id.
+        var page = await NewPageAsync(Android);
+        await page.Context.AddInitScriptAsync(BlockSessionStorage);
+
+        var (first, _) = await ReportFrom(page, () => page.GotoAsync(LiveSiteFixture.EntryPage));
+
+        first.GetProperty("deviceId").GetString().ShouldNotBeNullOrWhiteSpace();
+        first.GetProperty("deviceId").GetString()!.ShouldNotStartWith("ephemeral-");
     }
 
     [Fact]
