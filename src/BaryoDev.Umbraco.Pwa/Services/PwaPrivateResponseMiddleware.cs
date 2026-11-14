@@ -66,7 +66,9 @@ internal sealed class PwaPrivateResponseMiddleware
             return;
         }
 
-        if (!IsVisitorSpecific(context))
+        // A response that sets a cookie is for this visitor. The worker cannot see Set-Cookie,
+        // so the header is turned into one it can read.
+        if (!IsVisitorSpecific(context) && !context.Response.Headers.ContainsKey("Set-Cookie"))
         {
             return;
         }

@@ -164,6 +164,9 @@ const API = {{api}};
 const API_PREFIX = {{apiPrefix}};
 const SKIP = {{skip}};
 const NAV_FALLBACK = {{navFallback}};
+// The most entries a runtime cache keeps. The oldest written are evicted first. The navigation
+// fallback is never evicted.
+const MAX_ENTRIES = 200;
 
 self.addEventListener("install", (event) => {
   // A visitor whose first offline navigation is to a page they have not opened before has
@@ -210,7 +213,28 @@ function cacheable(resp) {
   if (resp.status !== 200 || resp.type !== "basic") return false;
 
   const directives = (resp.headers.get("Cache-Control") || "").toLowerCase().split(",");
-  return !directives.some((d) => d.trim() === "no-store" || d.trim() === "private");
+  if (directives.some((d) => d.trim() === "no-store" || d.trim() === "private")) return false;
+
+  // A response that varies on the cookie is per-visitor. Set-Cookie itself is invisible here (a
+  // forbidden response-header name), so the server marks those responses private instead.
+  const vary = (resp.headers.get("Vary") || "").toLowerCase().split(",");
+  if (vary.some((v) => v.trim() === "cookie" || v.trim() === "*")) return false;
+
+  return !resp.headers.has("Set-Cookie");
+}
+
+// Writes to a runtime cache, then evicts the oldest entries beyond MAX_ENTRIES. Cache keys come
+// back in insertion order. The offline fallback is skipped so trimming cannot remove it.
+function putBounded(name, req, resp) {
+  return caches.open(name).then((c) =>
+    c.put(req, resp).then(() =>
+      c.keys().then((keys) => {
+        const fallback = new URL(NAV_FALLBACK, self.location.origin).href;
+        const evictable = keys.filter((k) => k.url !== fallback);
+        return Promise.all(evictable.slice(0, Math.max(0, keys.length - MAX_ENTRIES)).map((k) => c.delete(k)));
+      }),
+    ),
+  );
 }
 
 function storable(resp) {
@@ -265,7 +289,7 @@ self.addEventListener("fetch", (event) => {
         .then((resp) => {
           if (storable(resp)) {
             const copy = resp.clone();
-            caches.open(API).then((c) => c.put(req, copy));
+            putBounded(API, req, copy).catch(() => {});
           }
           return resp;
         })
@@ -289,7 +313,7 @@ self.addEventListener("fetch", (event) => {
         .then((resp) => {
           if (storable(resp)) {
             const copy = resp.clone();
-            caches.open(SHELL).then((c) => c.put(req, copy));
+            putBounded(SHELL, req, copy).catch(() => {});
           }
           return resp;
         })
@@ -309,9 +333,7 @@ self.addEventListener("fetch", (event) => {
     const copy = resp.clone();
     // The write is best-effort. A refused put (quota, an unexpected status) must never turn a
     // response that arrived into a failed request.
-    return caches
-      .open(SHELL)
-      .then((c) => c.put(req, copy))
+    return putBounded(SHELL, req, copy)
       .catch(() => {})
       .then(() => resp);
   });
@@ -392,17 +414,23 @@ self.addEventListener("fetch", (event) => {
   var MIN_SCROLL = {{minScroll}};
   var MIN_SECONDS = {{minSeconds}};
 
-  // Held for the life of the page, and in sessionStorage when that works. Storage blocked means
-  // there is no durable id, but the visitor is still one visitor. A fresh id on every call stored
-  // one new row per page view.
+  // Held for the life of the page, and in sessionStorage. With localStorage blocked there is no
+  // durable id, but sessionStorage still gives one id per tab. With both blocked there is nowhere
+  // to keep an id at all: a new one per page load would store a new row per page view, so no id
+  // is returned and nothing is reported.
   var ephemeral = null;
 
   function ephemeralId() {
     if (ephemeral) return ephemeral;
-    try { ephemeral = sessionStorage.getItem(KEY); } catch (e) {}
-    if (!ephemeral) {
-      ephemeral = "ephemeral-" + Math.random().toString(36).slice(2);
-      try { sessionStorage.setItem(KEY, ephemeral); } catch (e) {}
+    try {
+      var id = sessionStorage.getItem(KEY);
+      if (!id) {
+        id = "ephemeral-" + Math.random().toString(36).slice(2);
+        sessionStorage.setItem(KEY, id);
+      }
+      ephemeral = id;
+    } catch (e) {
+      ephemeral = null;
     }
     return ephemeral;
   }
@@ -417,7 +445,8 @@ self.addEventListener("fetch", (event) => {
       }
       return id;
     } catch (e) {
-      // Storage blocked in private mode. One ephemeral id per page session still lets one report land.
+      // localStorage blocked. Falls back to one id per tab, or null when sessionStorage is
+      // blocked too.
       return ephemeralId();
     }
   }
@@ -457,10 +486,14 @@ self.addEventListener("fetch", (event) => {
 
   function report(forceInstalled) {
     if (!TRACK) return;
+    var id = deviceId();
+    // No storage at all: there is no stable id to send, and a made-up one per page load would
+    // add a row per page view. Send nothing.
+    if (!id) return;
     var mode = displayMode();
     var installed = forceInstalled || isInstalledMode(mode);
     var body = {
-      deviceId: deviceId(),
+      deviceId: id,
       // Only rewritten when the install actually happened and the window has not caught up yet,
       // which is the appinstalled event firing while the page is still in a tab.
       displayMode: forceInstalled && mode === "browser" ? "standalone" : mode,

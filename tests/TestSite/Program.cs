@@ -86,6 +86,13 @@ app.MapGet("/cache-control-private", (HttpResponse response) =>
     return Results.Text("private response");
 });
 
+// Varies on the cookie, so the response is per-visitor and must not be stored.
+app.MapGet("/vary-cookie", (HttpResponse response) =>
+{
+    response.Headers.Vary = "Accept-Encoding, Cookie";
+    return Results.Text("vary cookie response");
+});
+
 // Returns a new body on every request for the same key, so a test can tell a copy served from the
 // cache apart from one refreshed from the network.
 var changingAssetHits = new System.Collections.Concurrent.ConcurrentDictionary<string, int>();

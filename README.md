@@ -61,7 +61,7 @@ are the difference between the package working and appearing not to.
 | --- | --- | --- |
 | `TrackInstalls` | `true` | Off leaves the app behaviour and collects nothing |
 | `TrackInstalledOnly` | `false` | On stores nothing until someone actually installs |
-| `RetentionDays` | `0` | Zero keeps rows forever |
+| `RetentionDays` | `400` | Rows not seen for this many days are deleted. Set `0` to keep rows forever |
 | `ServeAssets` | `true` | Off if the site already ships its own `sw.js` |
 | `ServiceWorker.Version` | assembly version | Change per deploy to purge stale cached assets |
 | `InstallPrompt.MinVisits` | `2` | The visit on which the install prompt may first show. Visits are counted by day. `0` or `1` allows the first visit |
@@ -93,7 +93,7 @@ readiness check. Imported scripts run with the worker's full scope, so list only
 - **Pages** are fetched from the network first. A copy is kept only to answer when the visitor is offline, and the offline page is used when there is no copy.
 - **API responses** under `ApiPrefix` (default `/api/`) are fetched live. A copy is kept only as an offline fallback, and offline requests with no copy get a 503.
 - **Other same-origin files** (scripts, styles, images, media) are served from the cache when there is a copy, and revalidated in the background on the same request with a conditional request (an unchanged file costs a 304), so a changed file is current by the next view.
-- **Never stored:** anything under `SkipPaths` (the backoffice by default), other origins, error responses, redirects, partial (206) responses, and any response with `Cache-Control: no-store` or `private`. Responses for signed-in visitors are marked `private` by default.
+- **Never stored:** anything under `SkipPaths` (the backoffice by default), other origins, error responses, redirects, partial (206) responses, and any response with `Cache-Control: no-store` or `private`, and any response with `Vary: Cookie`. Responses for signed-in visitors, and responses that set a cookie, are marked `private` by default. Each runtime cache keeps at most 200 entries and evicts the oldest first; the offline fallback is never evicted.
 - **How long:** until the next refresh replaces it, or until `ServiceWorker.Version` changes, which clears everything.
 
 Media files are served publicly by Umbraco, since public access protects content pages, not files in `/media/`. If you protect files some other way, add their path to `SkipPaths`.
@@ -118,7 +118,7 @@ deployed.
 
 One row per browser, keyed by an id the browser generates for itself:
 
-platform, display mode, whether it has ever run installed, first and last seen, and a launch count.
+platform, display mode, whether it has ever run installed, first and last seen, and a count of page loads (the stored field is still called `launchCount`).
 
 **No IP address, no user agent string, no visitor identity.** The table answers "how many people
 installed this, on what" without becoming a record of who visited.
@@ -132,6 +132,8 @@ installed this, on what" without becoming a record of who visited.
 | `GET` | `/umbraco/management/api/v1/baryodev/pwa/installs` | Settings section |
 | `GET` | `/umbraco/management/api/v1/baryodev/pwa/readiness` | Settings section |
 | `GET` | `/manifest.webmanifest`, `/sw.js`, `/baryodev-pwa.js` | anonymous |
+
+If the browser blocks both `localStorage` and `sessionStorage`, the client sends no report, because there is no way to keep one id across page loads.
 
 A well-formed report always returns `202` with no body, whether it was stored or rate limited. It
 is best-effort telemetry, so a client should never retry over it, and an answer that varied with
@@ -192,7 +194,7 @@ browser, which confirmed end to end:
 | Service worker | registered at root scope, `https://.../sw.js` |
 | Caching | shell populated; the backoffice stayed out of it after a live `/umbraco/` fetch |
 | Install prompt | `beforeinstallprompt` fired and the banner rendered with a working Install button |
-| Tracking | the visit reached the database, and a second visit incremented the launch count rather than adding a row |
+| Tracking | the visit reached the database, and a second visit incremented the page load count rather than adding a row |
 
 ## Requirements
 

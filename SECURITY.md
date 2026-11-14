@@ -38,7 +38,7 @@ on the way out. Both halves are load-bearing. If you find a way through either, 
 finding.
 
 **Nothing identifying is stored.** The table holds a browser-generated id, platform, display mode,
-install state, timestamps and a launch count. No IP address, no user agent, no user id. If a
+install state, timestamps and a count of page loads. No IP address, no user agent, no user id. If a
 change would let the table answer "who visited", that is a security bug in this project's terms
 even if it leaks nothing externally.
 

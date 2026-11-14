@@ -57,6 +57,7 @@ internal class PwaInstallDto
     [NullSetting(NullSetting = NullSettings.Null)]
     public DateTime? InstalledAt { get; set; }
 
+    /// <summary>Counts reported page loads. The column name is kept for compatibility.</summary>
     [Column("launchCount")]
     public int LaunchCount { get; set; }
 }

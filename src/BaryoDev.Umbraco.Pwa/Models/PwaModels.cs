@@ -30,6 +30,9 @@ public class PwaInstallModel
     public DateTime FirstSeenAt { get; set; }
     public DateTime LastSeenAt { get; set; }
     public DateTime? InstalledAt { get; set; }
+    /// <summary>
+    /// How many page loads have reported for this browser. The name is kept for compatibility.
+    /// </summary>
     public int LaunchCount { get; set; }
 }
 

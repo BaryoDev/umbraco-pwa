@@ -31,7 +31,8 @@ public class PrivateResponseMiddlewareTests
         string path = "/members/dashboard",
         string? existingHeader = null,
         bool optionOn = true,
-        ClaimsPrincipal? user = null)
+        ClaimsPrincipal? user = null,
+        bool setCookie = false)
     {
         var response = new FiringResponse();
         var context = new DefaultHttpContext();
@@ -45,6 +46,11 @@ public class PrivateResponseMiddlewareTests
         else if (signedIn)
         {
             context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.Name, "a-member")], "TestScheme"));
+        }
+
+        if (setCookie)
+        {
+            context.Response.Headers.SetCookie = "session=abc; path=/; httponly";
         }
 
         if (existingHeader is not null)
@@ -92,6 +98,19 @@ public class PrivateResponseMiddlewareTests
     public async Task A_header_the_site_set_itself_is_never_overridden(string existing)
     {
         (await CacheControlAfter(signedIn: true, existingHeader: existing)).ShouldBe(existing);
+    }
+
+    [Fact]
+    public async Task A_response_that_sets_a_cookie_is_marked_private_even_when_nobody_is_signed_in()
+    {
+        // The worker cannot read Set-Cookie, so without this a cookie-setting page was cached.
+        (await CacheControlAfter(signedIn: false, setCookie: true)).ShouldBe("private");
+    }
+
+    [Fact]
+    public async Task A_cookie_setting_response_keeps_a_Cache_Control_the_site_chose()
+    {
+        (await CacheControlAfter(setCookie: true, existingHeader: "public, max-age=60")).ShouldBe("public, max-age=60");
     }
 
     [Fact]

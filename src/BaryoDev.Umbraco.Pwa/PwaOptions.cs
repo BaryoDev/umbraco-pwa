@@ -23,9 +23,15 @@ public class PwaOptions
     public bool TrackInstalledOnly { get; set; }
 
     /// <summary>
-    /// Delete rows not seen for this many days. Zero keeps everything forever.
+    /// Delete rows not seen for this many days. Defaults to 400. Set it to zero to keep
+    /// everything forever.
     /// </summary>
-    public int RetentionDays { get; set; }
+    /// <remarks>
+    /// The default is a value, not an absence, so a site that sets <c>RetentionDays</c> to
+    /// <c>0</c> in configuration still gets zero and keeps its rows. Only a site that never set
+    /// it changed: it used to keep rows forever and now deletes rows not seen for 400 days.
+    /// </remarks>
+    public int RetentionDays { get; set; } = 400;
 
     /// <summary>
     /// Serve a generated <c>/manifest.webmanifest</c> and <c>/sw.js</c> from the site root.
@@ -45,8 +51,8 @@ public class PwaOptions
     /// bound in front of it.
     ///
     /// Deliberately generous. Genuine traffic is one report per launch per device, but the
-    /// partition is the caller's address, and every visitor behind one corporate proxy or CDN
-    /// egress shares it. A tight limit would drop real reports from exactly the kind of site most
+    /// partition is the caller's address (the /64 prefix for IPv6, the full address for IPv4), and
+    /// every visitor behind one corporate proxy or CDN egress shares it. A tight limit would drop real reports from exactly the kind of site most
     /// worth counting. If your site sits behind a proxy, configure forwarded headers so this sees
     /// the visitor rather than the proxy, or set this to zero and rely on retention.
     ///

@@ -1,5 +1,6 @@
 using BaryoDev.Umbraco.Pwa.Persistence;
 using BaryoDev.Umbraco.Pwa.Services;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Shouldly;
 using Umbraco.Cms.Infrastructure.Scoping;
@@ -44,6 +45,28 @@ public class PwaInstallRetentionTests
     }
 
     [Fact]
+    public async Task An_unset_RetentionDays_deletes_rows_unseen_for_over_400_days()
+    {
+        await Insert("retention-default-old", DateTime.UtcNow.AddDays(-401));
+        await Insert("retention-default-recent", DateTime.UtcNow.AddDays(-399));
+
+        await RunJob(Bound(new Dictionary<string, string?>()));
+
+        (await Find("retention-default-old")).ShouldBeNull();
+        (await Find("retention-default-recent")).ShouldNotBeNull();
+    }
+
+    [Fact]
+    public async Task An_explicit_zero_in_configuration_still_keeps_rows_forever()
+    {
+        await Insert("retention-config-zero", DateTime.UtcNow.AddYears(-10));
+
+        await RunJob(Bound(new Dictionary<string, string?> { ["BaryoDev:Pwa:RetentionDays"] = "0" }));
+
+        (await Find("retention-config-zero")).ShouldNotBeNull();
+    }
+
+    [Fact]
     public async Task Empty_table_is_harmless()
     {
         var deviceId = "retention-empty";
@@ -52,9 +75,21 @@ public class PwaInstallRetentionTests
         (await Find(deviceId)).ShouldBeNull();
     }
 
-    private Task RunJob(int retentionDays)
+    // Bound the way the composer binds it, so "unset" and "explicit zero" are the real thing
+    // rather than two property initialisers.
+    private static PwaOptions Bound(Dictionary<string, string?> settings)
     {
-        var options = new TestOptionsMonitor(new PwaOptions {RetentionDays = retentionDays});
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+        var options = new PwaOptions();
+        configuration.GetSection(PwaOptions.SectionName).Bind(options);
+        return options;
+    }
+
+    private Task RunJob(int retentionDays) => RunJob(new PwaOptions {RetentionDays = retentionDays});
+
+    private Task RunJob(PwaOptions pwaOptions)
+    {
+        var options = new TestOptionsMonitor(pwaOptions);
         var job = new PwaInstallRetentionJob(
             _site.Resolve<IScopeProvider>(),
             options);

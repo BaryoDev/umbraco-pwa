@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -48,7 +50,7 @@ internal sealed class PwaReportRateLimitFilter : IAsyncActionFilter, IDisposable
             // The address partitions the limiter and is not stored, logged or returned. A caller
             // with no remote address, which happens in some hosting shapes, shares one partition
             // rather than escaping the limit.
-            var key = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+            var key = PartitionKey(context.Connection.RemoteIpAddress);
 
             return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
             {
@@ -62,6 +64,26 @@ internal sealed class PwaReportRateLimitFilter : IAsyncActionFilter, IDisposable
                 AutoReplenishment = true,
             });
         });
+    }
+
+    /// <summary>
+    /// The limiter partition for a caller. IPv4 is the full address. IPv6 is the /64 prefix,
+    /// because one subscriber is usually handed a whole /64 and can pick any address in it, so a
+    /// per-address budget would give them 2^64 budgets. An IPv4-mapped IPv6 address is the same
+    /// client as its IPv4 form and shares that budget.
+    /// </summary>
+    internal static string PartitionKey(IPAddress? address)
+    {
+        if (address is null) return "unknown";
+
+        if (address.IsIPv4MappedToIPv6) address = address.MapToIPv4();
+
+        if (address.AddressFamily != AddressFamily.InterNetworkV6) return address.ToString();
+
+        Span<byte> bytes = stackalloc byte[16];
+        if (!address.TryWriteBytes(bytes, out _)) return address.ToString();
+
+        return "v6/64:" + Convert.ToHexString(bytes[..8]);
     }
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)

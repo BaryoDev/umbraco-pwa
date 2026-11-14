@@ -73,7 +73,8 @@ Also not enforced: a known device id costs one UPDATE and a novel one an UPDATE 
 there is a weak timing difference between them. Left alone deliberately. Knowing an id in the first
 place means holding the browser that generated it, which is not an attacker who needs the oracle.
 
-The rate limit partitions on the caller's address, so every visitor behind one proxy shares a
+The rate limit partitions on the caller's address (the /64 prefix for IPv6, the full address for
+IPv4, and an IPv4-mapped IPv6 address counts as IPv4), so every visitor behind one proxy shares a
 budget. The address is used and never stored.
 
 ### 2. Stored value to the administrator's browser
@@ -136,8 +137,9 @@ account that is compromised, is not something this package can compensate for.
 
 The site's TLS, its hosting, and its other packages.
 
-`RetentionDays` defaults to zero, meaning keep everything. That is a data-retention decision for the
-site owner under their own lawful basis, not a security control this package sets for them.
+`RetentionDays` defaults to 400 days. A site owner who needs a different window under their own
+lawful basis sets it, and `0` keeps everything. The default is a bound on table growth, not a
+statement about what any site is allowed to keep.
 
 ## Known thin spots
 
