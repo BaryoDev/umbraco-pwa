@@ -23,15 +23,13 @@ public class PwaOptions
     public bool TrackInstalledOnly { get; set; }
 
     /// <summary>
-    /// Delete rows not seen for this many days. Defaults to 400. Set it to zero to keep
-    /// everything forever.
+    /// Delete rows not seen for this many days. Zero, the default, keeps everything forever.
     /// </summary>
     /// <remarks>
-    /// The default is a value, not an absence, so a site that sets <c>RetentionDays</c> to
-    /// <c>0</c> in configuration still gets zero and keeps its rows. Only a site that never set
-    /// it changed: it used to keep rows forever and now deletes rows not seen for 400 days.
+    /// Recommended: <c>400</c>. The default stays zero so an upgrade never deletes stored rows
+    /// without the site asking for it.
     /// </remarks>
-    public int RetentionDays { get; set; } = 400;
+    public int RetentionDays { get; set; }
 
     /// <summary>
     /// Serve a generated <c>/manifest.webmanifest</c> and <c>/sw.js</c> from the site root.
@@ -73,6 +71,10 @@ public class PwaOptions
     /// own, so without this the worker sees nothing telling it to decline.
     ///
     /// A response that already carries a <c>Cache-Control</c> header is never overridden.
+    ///
+    /// A service worker cannot read <c>Set-Cookie</c>, so a response that sets a per-visitor cookie
+    /// on an anonymous page is not detected here. Send <c>Cache-Control: private</c> on those pages
+    /// yourself, or they may be cached for offline use.
     ///
     /// Turn it off only if you are setting the header yourself, or you have decided that pages
     /// behind your sign-in are not sensitive on a shared device.

@@ -61,7 +61,7 @@ are the difference between the package working and appearing not to.
 | --- | --- | --- |
 | `TrackInstalls` | `true` | Off leaves the app behaviour and collects nothing |
 | `TrackInstalledOnly` | `false` | On stores nothing until someone actually installs |
-| `RetentionDays` | `400` | Rows not seen for this many days are deleted. Set `0` to keep rows forever |
+| `RetentionDays` | `0` | Zero keeps rows forever. Recommended: `400`, which deletes rows not seen for 400 days |
 | `ServeAssets` | `true` | Off if the site already ships its own `sw.js` |
 | `ServiceWorker.Version` | assembly version | Change per deploy to purge stale cached assets |
 | `InstallPrompt.MinVisits` | `2` | The visit on which the install prompt may first show. Visits are counted by day. `0` or `1` allows the first visit |
@@ -93,7 +93,7 @@ readiness check. Imported scripts run with the worker's full scope, so list only
 - **Pages** are fetched from the network first. A copy is kept only to answer when the visitor is offline, and the offline page is used when there is no copy.
 - **API responses** under `ApiPrefix` (default `/api/`) are fetched live. A copy is kept only as an offline fallback, and offline requests with no copy get a 503.
 - **Other same-origin files** (scripts, styles, images, media) are served from the cache when there is a copy, and revalidated in the background on the same request with a conditional request (an unchanged file costs a 304), so a changed file is current by the next view.
-- **Never stored:** anything under `SkipPaths` (the backoffice by default), other origins, error responses, redirects, partial (206) responses, and any response with `Cache-Control: no-store` or `private`, and any response with `Vary: Cookie`. Responses for signed-in visitors, and responses that set a cookie, are marked `private` by default. Each runtime cache keeps at most 200 entries and evicts the oldest first; the offline fallback is never evicted.
+- **Never stored:** anything under `SkipPaths` (the backoffice by default), other origins, error responses, redirects, partial (206) responses, and any response with `Cache-Control: no-store` or `private`, and any response with `Vary: Cookie`. Responses for signed-in visitors are marked `private` by default. A service worker cannot read `Set-Cookie`, so a site that sets per-visitor cookies on anonymous pages should send `Cache-Control: private` on them, or those pages may be cached for offline. Each runtime cache keeps at most 200 entries and evicts the oldest first; the offline fallback is never evicted.
 - **How long:** until the next refresh replaces it, or until `ServiceWorker.Version` changes, which clears everything.
 
 Media files are served publicly by Umbraco, since public access protects content pages, not files in `/media/`. If you protect files some other way, add their path to `SkipPaths`.

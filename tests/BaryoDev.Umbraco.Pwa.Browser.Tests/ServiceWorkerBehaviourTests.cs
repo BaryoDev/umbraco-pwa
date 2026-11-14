@@ -46,6 +46,21 @@ public class ServiceWorkerBehaviourTests
     }
 
     [Fact]
+    public async Task A_fallback_page_sent_with_Vary_Cookie_is_still_precached()
+    {
+        // The test site serves the fallback with Vary: Cookie. The Vary rule is for runtime
+        // writes only, so the install-time precache must keep it or offline navigation breaks.
+        var page = await Installed();
+
+        var vary = await page.EvaluateAsync<string>(
+            $"async () => (await fetch('{LiveSiteFixture.Fallback}')).headers.get('Vary')");
+
+        vary.ShouldNotBeNull();
+        vary.ToLowerInvariant().ShouldContain("cookie");
+        (await CacheKeys(page)).ShouldContain(LiveSiteFixture.Fallback);
+    }
+
+    [Fact]
     public async Task A_redirecting_fallback_is_cached_as_a_replayable_response()
     {
         var page = await Installed("/redirecting-sw.js");

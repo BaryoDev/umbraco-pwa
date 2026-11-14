@@ -47,6 +47,22 @@ await app.BootUmbracoAsync();
 // happen before any of it runs.
 app.UseForwardedHeaders();
 
+// The offline fallback page is served with Vary: Cookie. The install-time precache must still
+// store it, because the worker only applies the Vary rule to runtime cache writes.
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.Equals("/demo.html", StringComparison.OrdinalIgnoreCase))
+    {
+        context.Response.OnStarting(() =>
+        {
+            context.Response.Headers.Vary = "Cookie";
+            return Task.CompletedTask;
+        });
+    }
+
+    await next();
+});
+
 // Which build of the package this site is actually running, so the publish workflow can refuse to
 // ship something the playground never ran.
 //

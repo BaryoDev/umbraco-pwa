@@ -101,16 +101,11 @@ public class PrivateResponseMiddlewareTests
     }
 
     [Fact]
-    public async Task A_response_that_sets_a_cookie_is_marked_private_even_when_nobody_is_signed_in()
+    public async Task A_cookie_setting_anonymous_response_is_left_alone()
     {
-        // The worker cannot read Set-Cookie, so without this a cookie-setting page was cached.
-        (await CacheControlAfter(signedIn: false, setCookie: true)).ShouldBe("private");
-    }
-
-    [Fact]
-    public async Task A_cookie_setting_response_keeps_a_Cache_Control_the_site_chose()
-    {
-        (await CacheControlAfter(setCookie: true, existingHeader: "public, max-age=60")).ShouldBe("public, max-age=60");
+        // Pins the documented limit: the middleware does not guess from Set-Cookie. Sites send
+        // Cache-Control: private themselves.
+        (await CacheControlAfter(signedIn: false, setCookie: true)).ShouldBeNullOrEmpty();
     }
 
     [Fact]

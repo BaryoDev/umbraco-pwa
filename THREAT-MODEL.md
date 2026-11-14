@@ -137,9 +137,9 @@ account that is compromised, is not something this package can compensate for.
 
 The site's TLS, its hosting, and its other packages.
 
-`RetentionDays` defaults to 400 days. A site owner who needs a different window under their own
-lawful basis sets it, and `0` keeps everything. The default is a bound on table growth, not a
-statement about what any site is allowed to keep.
+`RetentionDays` defaults to zero, meaning keep everything, so an upgrade never deletes rows on its
+own. 400 is the recommended value, which bounds table growth. The window is a data-retention
+decision for the site owner under their own lawful basis.
 
 ## Known thin spots
 

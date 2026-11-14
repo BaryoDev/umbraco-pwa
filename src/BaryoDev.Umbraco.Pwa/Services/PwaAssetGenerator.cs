@@ -213,14 +213,7 @@ function cacheable(resp) {
   if (resp.status !== 200 || resp.type !== "basic") return false;
 
   const directives = (resp.headers.get("Cache-Control") || "").toLowerCase().split(",");
-  if (directives.some((d) => d.trim() === "no-store" || d.trim() === "private")) return false;
-
-  // A response that varies on the cookie is per-visitor. Set-Cookie itself is invisible here (a
-  // forbidden response-header name), so the server marks those responses private instead.
-  const vary = (resp.headers.get("Vary") || "").toLowerCase().split(",");
-  if (vary.some((v) => v.trim() === "cookie" || v.trim() === "*")) return false;
-
-  return !resp.headers.has("Set-Cookie");
+  return !directives.some((d) => d.trim() === "no-store" || d.trim() === "private");
 }
 
 // Writes to a runtime cache, then evicts the oldest entries beyond MAX_ENTRIES. Cache keys come
@@ -238,6 +231,12 @@ function putBounded(name, req, resp) {
 }
 
 function storable(resp) {
+  // A response that varies on the cookie is per-visitor, so it is not written to a runtime cache.
+  // Not applied to the install-time fallback precache, which uses cacheable() alone. Set-Cookie
+  // itself is a forbidden response-header name and cannot be read here.
+  const vary = (resp.headers.get("Vary") || "").toLowerCase().split(",");
+  if (vary.some((v) => v.trim() === "cookie" || v.trim() === "*")) return false;
+
   // Serving a redirected response from the cache under the original URL hands back the target's
   // body for the source address, and a navigation rejects it outright.
   return cacheable(resp) && !resp.redirected;

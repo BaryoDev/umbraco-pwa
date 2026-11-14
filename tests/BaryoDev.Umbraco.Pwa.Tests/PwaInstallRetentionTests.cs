@@ -45,25 +45,25 @@ public class PwaInstallRetentionTests
     }
 
     [Fact]
-    public async Task An_unset_RetentionDays_deletes_rows_unseen_for_over_400_days()
+    public async Task An_unset_RetentionDays_keeps_a_ten_year_old_row()
     {
-        await Insert("retention-default-old", DateTime.UtcNow.AddDays(-401));
-        await Insert("retention-default-recent", DateTime.UtcNow.AddDays(-399));
+        await Insert("retention-unset", DateTime.UtcNow.AddYears(-10));
 
         await RunJob(Bound(new Dictionary<string, string?>()));
 
-        (await Find("retention-default-old")).ShouldBeNull();
-        (await Find("retention-default-recent")).ShouldNotBeNull();
+        (await Find("retention-unset")).ShouldNotBeNull();
     }
 
     [Fact]
-    public async Task An_explicit_zero_in_configuration_still_keeps_rows_forever()
+    public async Task An_explicit_400_deletes_rows_unseen_for_over_400_days_and_keeps_newer_ones()
     {
-        await Insert("retention-config-zero", DateTime.UtcNow.AddYears(-10));
+        await Insert("retention-400-old", DateTime.UtcNow.AddDays(-401));
+        await Insert("retention-400-recent", DateTime.UtcNow.AddDays(-399));
 
-        await RunJob(Bound(new Dictionary<string, string?> { ["BaryoDev:Pwa:RetentionDays"] = "0" }));
+        await RunJob(Bound(new Dictionary<string, string?> { ["BaryoDev:Pwa:RetentionDays"] = "400" }));
 
-        (await Find("retention-config-zero")).ShouldNotBeNull();
+        (await Find("retention-400-old")).ShouldBeNull();
+        (await Find("retention-400-recent")).ShouldNotBeNull();
     }
 
     [Fact]
