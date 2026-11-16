@@ -5,7 +5,7 @@
 # the one this was tested against. The digests are multi-arch indexes, so the arm64 build on the
 # VM and the amd64 build in CI both resolve. A digest also stops base-image security patches
 # arriving on their own: Dependabot watches this file and opens a PR when the tag moves.
-FROM mcr.microsoft.com/dotnet/sdk:10.0@sha256:2fa828c68761b1b8c23d7662dc134421b9d3b59fe1425fdbc80804e390cdb24d AS build
+FROM mcr.microsoft.com/dotnet/sdk:11.0@sha256:65f3c7c6a25a239ab3e6719f2896147e7b68242ff2d8818dd70498bde6ef8bea AS build
 WORKDIR /src
 
 COPY src/BaryoDev.Umbraco.Pwa/ ./src/BaryoDev.Umbraco.Pwa/
