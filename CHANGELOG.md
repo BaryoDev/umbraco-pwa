@@ -16,6 +16,10 @@ each covers and which test gates it.
 
 - Added a `packages.lock.json` for the package project, and CI and the release workflow restore with `--locked-mode`. The package reference ranges are unchanged, so supported Umbraco versions stay 16, 17 and 18.
 
+### Security
+
+- Pinned MailKit and MimeKit 4.16.0, MessagePack 3.1.9 and, on net10.0, Microsoft.OpenApi 2.7.5. Umbraco brings older versions with published advisories, and a direct reference is the only way the fix reaches a site that installs this package. A site now resolves at least these versions.
+
 ## [0.7.0] - 2026-11-14
 
 ### Changed
