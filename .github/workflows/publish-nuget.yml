@@ -96,7 +96,7 @@ jobs:
             exit 1
           fi
 
-      - run: dotnet restore src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj
+      - run: dotnet restore src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj --locked-mode
 
       - run: dotnet build src/BaryoDev.Umbraco.Pwa/BaryoDev.Umbraco.Pwa.csproj --configuration Release --no-restore
 
@@ -106,7 +106,7 @@ jobs:
       # They run on pushes to main, so in practice they usually had run. "Usually" is not what a
       # release gate means, and a tag can be pushed at any commit.
       - name: Refuse to publish a tree with a known advisory
-        run: dotnet restore BaryoDev.Umbraco.Pwa.slnx -p:AuditPipeline=true --force
+        run: dotnet restore BaryoDev.Umbraco.Pwa.slnx -p:AuditPipeline=true --force --locked-mode
 
       - name: Test
         run: dotnet test tests/BaryoDev.Umbraco.Pwa.Tests --configuration Release --verbosity normal
