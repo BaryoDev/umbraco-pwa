@@ -43,7 +43,7 @@ jobs:
       # The whole solution rather than the package project, because the test projects pull their
       # own tree and an advisory there is still an advisory in this repository.
       - name: Restore with advisories as errors
-        run: dotnet restore BaryoDev.Umbraco.Pwa.slnx -p:AuditPipeline=true --force
+        run: dotnet restore BaryoDev.Umbraco.Pwa.slnx -p:AuditPipeline=true --force --locked-mode
 
       - name: List what is installed, advisories or not
         if: always()
@@ -88,7 +88,9 @@ jobs:
             9.0.x
             10.0.x
 
-      - run: dotnet build src/BaryoDev.Umbraco.Pwa -c Release
+      - run: dotnet restore src/BaryoDev.Umbraco.Pwa --locked-mode
+
+      - run: dotnet build src/BaryoDev.Umbraco.Pwa -c Release --no-restore
 
       - run: dotnet pack src/BaryoDev.Umbraco.Pwa -c Release --no-build -o artifacts
 

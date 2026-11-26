@@ -13,6 +13,10 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
+    <!-- The lock file records the exact version each range resolved to. Workflows restore with
+         the locked mode flag, so what CI and the release build is the committed set, not whatever the
+         ranges resolve to that day. Regenerate it by running dotnet restore with the force-evaluate switch -->
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
     <!-- Maps wwwroot/ onto App_Plugins/BaryoDev.Pwa so the backoffice can find the manifest. -->

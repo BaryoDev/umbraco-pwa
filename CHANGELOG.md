@@ -12,6 +12,10 @@ each covers and which test gates it.
 
 ## [Unreleased]
 
+### Changed
+
+- Added a `packages.lock.json` for the package project, and CI and the release workflow restore with `--locked-mode`. The package reference ranges are unchanged, so supported Umbraco versions stay 16, 17 and 18.
+
 ## [0.7.0] - 2026-11-14
 
 ### Changed
