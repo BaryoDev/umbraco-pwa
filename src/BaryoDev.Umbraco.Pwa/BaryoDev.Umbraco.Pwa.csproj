@@ -83,6 +83,30 @@
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="10.0.14" />
   </ItemGroup>
 
+  <!-- Same reason as the Xml pin: this package does not call these, Umbraco brings versions with
+       published advisories, and a direct reference is the only way the fix reaches a site that
+       installs this. Each is the lowest release that fixes every advisory listed.
+
+       MailKit 4.16.0 (GHSA-9j88-vvj5-vhgr) and MimeKit 4.16.0 (GHSA-g7hc-96xr-gvvx, fixed in
+       4.15.1). Umbraco 16 brings 4.11.0 and Umbraco 17 brings 4.14.0.
+
+       MessagePack 3.1.9: fourteen advisories against 3.0 to 3.1.8, the last (GHSA-qhrr-8q5h-9q3h)
+       fixed only in 3.1.9. Umbraco brings 3.1.3 and 3.1.4.
+
+       Drop each when the lowest supported Umbraco brings a fixed version itself. -->
+  <ItemGroup>
+    <PackageReference Include="MailKit" Version="4.16.0" />
+    <PackageReference Include="MimeKit" Version="4.16.0" />
+    <PackageReference Include="MessagePack" Version="3.1.9" />
+  </ItemGroup>
+
+  <!-- Microsoft.OpenApi 2.7.5 on net10.0 only (GHSA-v5pm-xwqc-g5wc, 2.0.0 to 2.7.4). Umbraco 17
+       brings 2.3.0. Umbraco 16 on net9.0 brings 1.6.23, which the advisory does not cover, so
+       net9.0 keeps it rather than move to a new major. -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+    <PackageReference Include="Microsoft.OpenApi" Version="2.7.5" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Include="../../README.md" Pack="true" PackagePath="/" />
     <None Include="../../icon.png" Pack="true" PackagePath="/" />
